@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة الموظفين</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-router-dom@6.3.0/dist/umd/react-router-dom.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/framer-motion@10.12.16/dist/framer-motion.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.252.0/dist/umd/lucide-react.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
+    body { font-family: 'Amiri', sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'https://cdn.jsdelivr.net/npm/react@18.2.0/+esm';
+    import { createRoot } from 'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/+esm';
+    import { BrowserRouter } from 'https://cdn.jsdelivr.net/npm/react-router-dom@6.3.0/+esm';
+    import App from './App.jsx';
+    
+    const root = createRoot(document.getElementById('root'));
+    root.render(
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    );
+  </script>
+</body>
+</html>
