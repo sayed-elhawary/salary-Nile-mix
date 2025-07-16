@@ -217,6 +217,7 @@ async function processAttendance(results, req, res) {
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance;
           existingRecord.employeeName = user.employeeName;
+          existingRecord.shiftType = user.shiftType;
           await existingRecord.save();
           console.log(`Updated record: ${JSON.stringify(existingRecord, null, 2)}`);
         } else {
@@ -359,6 +360,7 @@ async function processAttendance(results, req, res) {
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance;
           existingRecord.employeeName = user.employeeName;
+          existingRecord.shiftType = user.shiftType;
           await existingRecord.save();
           console.log(`Updated record: ${JSON.stringify(existingRecord, null, 2)}`);
         } else {
@@ -396,8 +398,9 @@ async function processAttendance(results, req, res) {
 }
 
 // GET /api/attendance
+// GET /api/attendance
 router.get('/', auth, async (req, res) => {
-  const { employeeCode, startDate, endDate, filterPresent, filterAbsent, filterSingleCheckIn } = req.query;
+  const { employeeCode, startDate, endDate, filterPresent, filterAbsent, filterSingleCheckIn, shiftType } = req.query;
   const query = {};
 
   if (employeeCode) query.employeeCode = employeeCode;
@@ -407,12 +410,18 @@ router.get('/', auth, async (req, res) => {
       $lte: new Date(endDate),
     };
   }
-
-  if (filterPresent === 'true' && (!startDate || !endDate)) query.status = 'present';
-  else if (filterAbsent === 'true' && (!startDate || !endDate)) query.status = 'absent';
-  else if (filterSingleCheckIn === 'true' && (!startDate || !endDate)) {
-    query.checkIn = { $exists: true, $ne: null };
-    query.checkOut = { $exists: false };
+  if (shiftType && shiftType !== 'all') {
+    query.shiftType = shiftType;
+  }
+  if (filterPresent === 'true') {
+    query.status = 'present';
+  } else if (filterAbsent === 'true') {
+    query.status = 'absent';
+  } else if (filterSingleCheckIn === 'true') {
+    query.$or = [
+      { checkIn: { $exists: true, $ne: null }, checkOut: { $exists: false } },
+      { checkIn: { $exists: false }, checkOut: { $exists: true, $ne: null } },
+    ];
   }
 
   try {
@@ -430,6 +439,7 @@ router.get('/', auth, async (req, res) => {
       let lastMonthlyLateAllowance = {};
       let lastAnnualLeaveBalance = {};
       for (const user of users) {
+        if (shiftType && shiftType !== 'all' && user.shiftType !== shiftType) continue; // Skip users not matching shiftType
         lastMonthlyLateAllowance[user.code] = user.monthlyLateAllowance || 120;
         lastAnnualLeaveBalance[user.code] = user.annualLeaveBalance || 21;
         const lastRecord = await Attendance.findOne({ employeeCode: user.code })
@@ -447,17 +457,36 @@ router.get('/', auth, async (req, res) => {
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         for (const user of users) {
+          if (shiftType && shiftType !== 'all' && user.shiftType !== shiftType) continue; // Skip users not matching shiftType
           const record = records.find(
             (r) =>
               r.employeeCode === user.code &&
               r.date.toDateString() === d.toDateString()
           );
           if (record) {
+            if (
+              (filterPresent === 'true' && record.status !== 'present') ||
+              (filterAbsent === 'true' && record.status !== 'absent') ||
+              (filterSingleCheckIn === 'true' &&
+                !(
+                  (record.checkIn && !record.checkOut) ||
+                  (!record.checkIn && record.checkOut)
+                ))
+            ) {
+              continue; // Skip records not matching filter criteria
+            }
             lastMonthlyLateAllowance[user.code] = record.monthlyLateAllowance || lastMonthlyLateAllowance[user.code];
             lastAnnualLeaveBalance[user.code] = record.annualLeaveBalance || lastAnnualLeaveBalance[user.code];
             result.push(record);
           } else {
             const status = user.shiftType === '24/24' ? 'absent' : calculateStatus(d, user.workingDays);
+            if (
+              (filterPresent === 'true' && status !== 'present') ||
+              (filterAbsent === 'true' && status !== 'absent') ||
+              (filterSingleCheckIn === 'true')
+            ) {
+              continue; // Skip records not matching filter criteria
+            }
             const monthlySalary = user.baseSalary || 5000;
             const dailyRate = monthlySalary / 30;
             result.push({
@@ -486,7 +515,16 @@ router.get('/', auth, async (req, res) => {
         }
       }
     } else {
-      records = records.filter(record => record.checkIn || record.checkOut || record.status !== 'absent' && record.status !== 'weekly_off');
+      records = records.filter(record => {
+        if (filterPresent === 'true' && record.status !== 'present') return false;
+        if (filterAbsent === 'true' && record.status !== 'absent') return false;
+        if (
+          filterSingleCheckIn === 'true' &&
+          !((record.checkIn && !record.checkOut) || (!record.checkIn && record.checkOut))
+        ) return false;
+        if (shiftType && shiftType !== 'all' && record.shiftType !== shiftType) return false;
+        return record.checkIn || record.checkOut || record.status !== 'absent' && record.status !== 'weekly_off';
+      });
       result.push(...records);
     }
 
@@ -539,7 +577,7 @@ router.get('/', auth, async (req, res) => {
     for (const employeeCode in summaries) {
       const user = await User.findOne({ code: employeeCode });
       summaries[employeeCode].netExtraHoursCompensation =
-        summaries[employeeCode].totalExtraHoursCompensation - summaries[employeeCode].totalLateDeduction;
+        summaries[employeeCode].totalExtraHoursCompensation - summaries[employeeCode].totalLateDeduction; // Fixed line
       if (user && user.shiftType === '24/24' && summaries[employeeCode].totalWorkDays > 15) {
         summaries[employeeCode].warning = `Employee worked ${summaries[employeeCode].totalWorkDays} days, exceeding the 15-day limit.`;
       }
@@ -551,7 +589,6 @@ router.get('/', auth, async (req, res) => {
     res.status(500).json({ message: `خطأ في جلب السجلات: ${err.message}` });
   }
 });
-
 // PUT /api/attendance/:id
 router.put('/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -928,6 +965,7 @@ router.post('/official_leave', auth, async (req, res) => {
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance;
           existingRecord.employeeName = user.employeeName;
+          existingRecord.shiftType = user.shiftType;
           await existingRecord.save();
           console.log(`Updated official leave for ${user.code} on ${d.toISOString()}`);
         } else {
@@ -1145,6 +1183,7 @@ router.post('/annual_leave', auth, async (req, res) => {
           existingRecord.employeeName = user.employeeName;
           existingRecord.leaveCompensation = 0;
           existingRecord.medicalLeaveDeduction = medicalLeaveDeduction;
+          existingRecord.shiftType = user.shiftType;
           await existingRecord.save();
           console.log(`Updated ${status} for ${user.code} on ${d.toISOString()}`);
         } else {
@@ -1316,7 +1355,7 @@ function calculateLateMinutes(user, checkInTime) {
   const expected = new Date(0);
   expected.setHours(expectedHour, expectedMinute);
   if (checkIn > expected) {
-    const diffMs = checkIn - exposed;
+    const diffMs = checkIn - expected; 
     return Math.floor(diffMs / 1000 / 60);
   }
   return 0;
