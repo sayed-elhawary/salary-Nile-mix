@@ -106,7 +106,8 @@ const CreateUser = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-4xl font-amiri">
+    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
       <AnimatePresence>
         {loading && <LoadingSpinner />}
         {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
@@ -115,22 +116,24 @@ const CreateUser = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-200"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-4xl mx-auto font-cairo"
       >
-        <h2 className="text-2xl font-bold text-blue-600 mb-6 sm:mb-8 text-right">إنشاء حساب جديد</h2>
+        <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">
+          إنشاء حساب جديد
+        </h2>
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 text-right text-sm font-medium"
+            className="bg-purple-50 text-gray-600 p-4 rounded-lg mb-6 text-right text-sm font-semibold"
           >
             {error}
           </motion.div>
         )}
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               كود الموظف
             </label>
             <input
@@ -138,13 +141,13 @@ const CreateUser = () => {
               name="code"
               value={form.code}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               كلمة المرور
             </label>
             <input
@@ -152,13 +155,13 @@ const CreateUser = () => {
               name="password"
               value={form.password}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               الاسم الكامل
             </label>
             <input
@@ -166,13 +169,13 @@ const CreateUser = () => {
               name="employeeName"
               value={form.employeeName}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               القسم
             </label>
             <input
@@ -180,13 +183,13 @@ const CreateUser = () => {
               name="department"
               value={form.department}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               الراتب الأساسي
             </label>
             <input
@@ -194,7 +197,7 @@ const CreateUser = () => {
               name="baseSalary"
               value={form.baseSalary}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               step="0.01"
               required
@@ -202,7 +205,7 @@ const CreateUser = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               الحافز الأساسي
             </label>
             <input
@@ -210,14 +213,14 @@ const CreateUser = () => {
               name="baseBonus"
               value={form.baseBonus}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               step="0.01"
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               نسبة الحافز (%)
             </label>
             <input
@@ -225,7 +228,7 @@ const CreateUser = () => {
               name="bonusPercentage"
               value={form.bonusPercentage}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               max="100"
               step="0.01"
@@ -233,7 +236,7 @@ const CreateUser = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               التأمين الطبي
             </label>
             <input
@@ -241,14 +244,14 @@ const CreateUser = () => {
               name="medicalInsurance"
               value={form.medicalInsurance}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               step="0.01"
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               التأمين الاجتماعي
             </label>
             <input
@@ -256,14 +259,14 @@ const CreateUser = () => {
               name="socialInsurance"
               value={form.socialInsurance}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               step="0.01"
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               بدل وجبة
             </label>
             <input
@@ -271,21 +274,21 @@ const CreateUser = () => {
               name="mealAllowance"
               value={form.mealAllowance}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               step="0.01"
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               عدد أيام العمل
             </label>
             <select
               name="workingDays"
               value={form.workingDays}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               disabled={loading}
             >
               <option value="5">5 أيام (الجمعة والسبت إجازة)</option>
@@ -293,14 +296,14 @@ const CreateUser = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               نوع الشيفت
             </label>
             <select
               name="shiftType"
               value={form.shiftType}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               disabled={loading}
             >
               <option value="administrative">إداري</option>
@@ -310,7 +313,7 @@ const CreateUser = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               رصيد الإجازة السنوية
             </label>
             <input
@@ -318,13 +321,13 @@ const CreateUser = () => {
               name="annualLeaveBalance"
               value={form.annualLeaveBalance}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               رصيد دقائق السماح الشهري
             </label>
             <input
@@ -332,31 +335,29 @@ const CreateUser = () => {
               name="monthlyLateAllowance"
               value={form.monthlyLateAllowance}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               disabled={loading}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+            <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
               الصافي
             </label>
             <input
               type="text"
               value={form.netSalary}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm bg-gray-50 cursor-not-allowed"
+              className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm bg-purple-50 cursor-not-allowed"
               readOnly
             />
           </div>
-          <div className="sm:col-span-2 flex justify-end gap-3">
+          <div className="sm:col-span-2 flex justify-end gap-4">
             <motion.button
               type="submit"
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-sm ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? 'جارٍ الحفظ...' : 'حفظ'}
             </motion.button>
@@ -366,9 +367,7 @@ const CreateUser = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-gray-500 text-white px-5 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-sm ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               إلغاء
             </motion.button>

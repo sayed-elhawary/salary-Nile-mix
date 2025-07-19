@@ -6,9 +6,10 @@ import Dashboard from './pages/Dashboard';
 import CreateUser from './pages/CreateUser';
 import EditUser from './pages/EditUser';
 import UploadAttendance from './pages/UploadAttendance';
-import SalaryReport from './pages/SalaryReport'; // إضافة صفحة تقرير الراتب
+import SalaryReport from './pages/SalaryReport';
 import NavBar from './components/NavBar';
 import { AuthContext } from './components/AuthProvider';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -50,22 +51,56 @@ const App = () => {
     navigate('/login');
   };
 
-  if (loading) return null;
-
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
-      <div className="min-h-screen bg-gray-100 flex flex-col font-amiri">
-        {user && <NavBar />}
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/create-user" element={<CreateUser />} />
-          <Route path="/edit-user" element={<EditUser />} />
-          <Route path="/upload-attendance" element={<UploadAttendance />} />
-          <Route path="/salary-report" element={<SalaryReport />} /> {/* إضافة مسار تقرير الراتب */}
-          <Route path="*" element={<Login />} />
-        </Routes>
-      </div>
+      <AnimatePresence>
+        {loading ? (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-gradient-to-br from-blue-50 to-teal-50 flex items-center justify-center z-50"
+            dir="rtl"
+          >
+            <div className="text-center">
+              <motion.div
+                animate={{ scale: [1, 1.2, 1], rotate: 360 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full"
+              ></motion.div>
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="mt-4 text-blue-500 text-lg font-noto-sans-arabic font-semibold"
+              >
+                جاري التحميل...
+              </motion.p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="app"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="min-h-screen bg-gradient-to-b from-white to-blue-50 font-noto-sans-arabic"
+            dir="rtl"
+          >
+            {user && <NavBar />}
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/create-user" element={<CreateUser />} />
+              <Route path="/edit-user" element={<EditUser />} />
+              <Route path="/upload-attendance" element={<UploadAttendance />} />
+              <Route path="/salary-report" element={<SalaryReport />} />
+              <Route path="*" element={<Login />} />
+            </Routes>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AuthContext.Provider>
   );
 };

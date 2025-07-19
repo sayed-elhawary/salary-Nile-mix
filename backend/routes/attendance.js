@@ -67,6 +67,7 @@ function calculateStatus(date, workingDays, shiftType) {
   console.log(`Calculated status for ${date.toISOString().split('T')[0]}: ${status}`);
   return status;
 }
+
 // POST /api/attendance/upload
 router.post('/upload', auth, upload.single('file'), async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -203,6 +204,7 @@ async function processAttendance(results, req, res) {
             extraHoursCompensation: 0,
             workHours: 0,
             fridayBonus: 0,
+            hoursDeduction: 0,
             status: 'present',
           });
         } else {
@@ -218,14 +220,17 @@ async function processAttendance(results, req, res) {
               prevRecord.calculatedWorkDays = 1;
               prevRecord.extraHours = 0;
               prevRecord.extraHoursCompensation = 0;
+              prevRecord.hoursDeduction = 0;
             } else if (hoursWorked >= 24) {
               prevRecord.calculatedWorkDays = 2;
               prevRecord.extraHours = 6;
               prevRecord.extraHoursCompensation = 6 * regularHourRate;
+              prevRecord.hoursDeduction = 0;
             } else {
               prevRecord.calculatedWorkDays = 1;
               prevRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
               prevRecord.extraHoursCompensation = (hoursWorked - NORMAL_WORK_HOURS) * regularHourRate;
+              prevRecord.hoursDeduction = 0;
             }
             if (prevRecord.date.getDay() === 5) {
               prevRecord.fridayBonus = dailyRate;
@@ -242,6 +247,7 @@ async function processAttendance(results, req, res) {
               extraHours: 0,
               extraHoursCompensation: 0,
               workHours: 0,
+              hoursDeduction: 0,
               fridayBonus: checkOutDate.getDay() === 5 ? dailyRate : 0,
               status: 'present',
             });
@@ -272,12 +278,13 @@ async function processAttendance(results, req, res) {
           existingRecord.extraHours = record.extraHours;
           existingRecord.extraHoursCompensation = record.extraHoursCompensation;
           existingRecord.workHours = record.workHours;
+          existingRecord.hoursDeduction = record.hoursDeduction;
           existingRecord.fridayBonus = record.fridayBonus;
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance;
           existingRecord.employeeName = user.employeeName;
           existingRecord.shiftType = user.shiftType;
-          existingRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+          existingRecord.workingDays = user.workingDays;
           await existingRecord.save();
           console.log(`Updated record: ${JSON.stringify(existingRecord, null, 2)}`);
         } else {
@@ -288,13 +295,14 @@ async function processAttendance(results, req, res) {
             checkIn: record.checkIn,
             checkOut: record.checkOut,
             shiftType: user.shiftType,
-            workingDays: user.workingDays, // استخدام القيمة الأصلية
+            workingDays: user.workingDays,
             lateMinutes: 0,
             deductedDays: 0,
             calculatedWorkDays: record.calculatedWorkDays,
             extraHours: record.extraHours,
             extraHoursCompensation: record.extraHoursCompensation,
             workHours: record.workHours,
+            hoursDeduction: record.hoursDeduction,
             fridayBonus: record.fridayBonus,
             annualLeaveBalance,
             monthlyLateAllowance,
@@ -356,6 +364,7 @@ async function processAttendance(results, req, res) {
 
         let lateMinutes = 0;
         let deductedDays = 0;
+        let hoursDeduction = 0;
 
         // تطبيق دقائق التأخير والأيام المستقطعة فقط لشيفت administrative
         if (user.shiftType === 'administrative') {
@@ -395,10 +404,29 @@ async function processAttendance(results, req, res) {
               extraHours = workHours / 2;
               extraHoursCompensation = extraHours * extraHourRate;
               calculatedWorkDays = 2;
+              hoursDeduction = 0; // لا خصم في الجمعة
+            } else if (workHours < NORMAL_WORK_HOURS) {
+              hoursDeduction = NORMAL_WORK_HOURS - workHours;
+              extraHours = 0;
+              extraHoursCompensation = 0;
+              calculatedWorkDays = 1;
             } else if (workHours > NORMAL_WORK_HOURS) {
               extraHours = workHours - NORMAL_WORK_HOURS;
               extraHoursCompensation = extraHours * extraHourRate;
+              calculatedWorkDays = 1;
+              hoursDeduction = 0;
+            } else {
+              extraHours = 0;
+              extraHoursCompensation = 0;
+              calculatedWorkDays = 1;
+              hoursDeduction = 0;
             }
+          } else if (checkIn || checkOut) {
+            workHours = NORMAL_WORK_HOURS; // افتراض 9 ساعات لبصمة واحدة
+            extraHours = 0;
+            extraHoursCompensation = 0;
+            calculatedWorkDays = 1;
+            hoursDeduction = 0;
           }
           if (checkIn && isFriday) {
             fridayBonus = dailyRate;
@@ -418,12 +446,13 @@ async function processAttendance(results, req, res) {
           existingRecord.extraHours = extraHours;
           existingRecord.extraHoursCompensation = extraHoursCompensation;
           existingRecord.workHours = workHours;
+          existingRecord.hoursDeduction = hoursDeduction;
           existingRecord.fridayBonus = fridayBonus;
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance;
           existingRecord.employeeName = user.employeeName;
           existingRecord.shiftType = user.shiftType;
-          existingRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+          existingRecord.workingDays = user.workingDays;
           await existingRecord.save();
           console.log(`Updated record: ${JSON.stringify(existingRecord, null, 2)}`);
         } else {
@@ -434,13 +463,14 @@ async function processAttendance(results, req, res) {
             checkIn,
             checkOut,
             shiftType: user.shiftType,
-            workingDays: user.workingDays, // استخدام القيمة الأصلية
+            workingDays: user.workingDays,
             lateMinutes,
             deductedDays,
             calculatedWorkDays,
             extraHours,
             extraHoursCompensation,
             workHours,
+            hoursDeduction,
             fridayBonus,
             annualLeaveBalance,
             monthlyLateAllowance,
@@ -543,7 +573,7 @@ router.get('/', auth, async (req, res) => {
             ) {
               continue;
             }
-            record.workingDays = formatWorkingDays(user.workingDays); // تحويل للعرض
+            record.workingDays = formatWorkingDays(user.workingDays);
             lastMonthlyLateAllowance[user.code] = record.monthlyLateAllowance || lastMonthlyLateAllowance[user.code];
             lastAnnualLeaveBalance[user.code] = record.annualLeaveBalance || lastAnnualLeaveBalance[user.code];
             result.push(record);
@@ -570,13 +600,14 @@ router.get('/', auth, async (req, res) => {
               checkIn: null,
               checkOut: null,
               shiftType: user.shiftType,
-              workingDays: formatWorkingDays(user.workingDays), // تحويل للعرض
+              workingDays: formatWorkingDays(user.workingDays),
               lateMinutes: 0,
               deductedDays: 0,
               calculatedWorkDays: 0,
               extraHours: 0,
               extraHoursCompensation: 0,
               workHours: 0,
+              hoursDeduction: 0,
               fridayBonus: 0,
               annualLeaveBalance: lastAnnualLeaveBalance[user.code],
               monthlyLateAllowance: lastMonthlyLateAllowance[user.code],
@@ -627,6 +658,8 @@ router.get('/', auth, async (req, res) => {
           totalExtraHours: 0,
           totalExtraHoursCompensation: 0,
           totalWorkHours: 0,
+          totalHoursDeduction: 0,
+          totalHoursDeductionCost: 0,
           totalFridayBonus: 0,
           totalLateMinutes: 0,
           totalDeductedDays: 0,
@@ -643,6 +676,8 @@ router.get('/', auth, async (req, res) => {
         summaries[record.employeeCode].totalExtraHours += record.extraHours || 0;
         summaries[record.employeeCode].totalExtraHoursCompensation += record.extraHoursCompensation || 0;
         summaries[record.employeeCode].totalWorkHours += record.workHours || 0;
+        summaries[record.employeeCode].totalHoursDeduction += record.hoursDeduction || 0;
+        summaries[record.employeeCode].totalHoursDeductionCost += (record.hoursDeduction || 0) * (record.baseSalary || 5000) / 30 / NORMAL_WORK_HOURS;
         summaries[record.employeeCode].totalFridayBonus += record.fridayBonus || 0;
       } else if (record.status === 'absent') {
         summaries[record.employeeCode].absentDays++;
@@ -705,7 +740,7 @@ router.put('/:id', auth, async (req, res) => {
         employeeName: user.employeeName,
         date: new Date(req.body.date),
         shiftType: user.shiftType,
-        workingDays: user.workingDays, // استخدام القيمة الأصلية
+        workingDays: user.workingDays,
         createdBy: req.user.id,
       });
       isNewRecord = true;
@@ -738,6 +773,7 @@ router.put('/:id', auth, async (req, res) => {
     let workHours = 0;
     let extraHours = 0;
     let extraHoursCompensation = 0;
+    let hoursDeduction = 0;
     let fridayBonus = 0;
     let calculatedWorkDays = (checkIn || checkOut) ? 1 : 0;
 
@@ -755,6 +791,7 @@ router.put('/:id', auth, async (req, res) => {
       record.extraHours = 0;
       record.extraHoursCompensation = 0;
       record.workHours = 0;
+      record.hoursDeduction = 0;
       record.fridayBonus = 0;
       record.leaveCompensation = 0;
       record.medicalLeaveDeduction = 0;
@@ -773,6 +810,7 @@ router.put('/:id', auth, async (req, res) => {
       record.extraHours = 0;
       record.extraHoursCompensation = 0;
       record.workHours = 0;
+      record.hoursDeduction = 0;
       record.fridayBonus = 0;
       record.medicalLeaveDeduction = 0;
       if (annualLeaveBalance >= 2) {
@@ -792,6 +830,7 @@ router.put('/:id', auth, async (req, res) => {
       record.extraHours = 0;
       record.extraHoursCompensation = 0;
       record.workHours = 0;
+      record.hoursDeduction = 0;
       record.fridayBonus = 0;
       record.leaveCompensation = 0;
       medicalLeaveDeduction = dailyRate * 0.25;
@@ -830,14 +869,17 @@ router.put('/:id', auth, async (req, res) => {
           record.calculatedWorkDays = 1;
           record.extraHours = 0;
           record.extraHoursCompensation = 0;
+          record.hoursDeduction = 0;
         } else if (hoursWorked >= 24) {
           record.calculatedWorkDays = 2;
           record.extraHours = 6;
           record.extraHoursCompensation = 6 * regularHourRate;
+          record.hoursDeduction = 0;
         } else {
           record.calculatedWorkDays = 1;
           record.extraHours = hoursWorked - NORMAL_WORK_HOURS;
           record.extraHoursCompensation = (hoursWorked - NORMAL_WORK_HOURS) * regularHourRate;
+          record.hoursDeduction = 0;
         }
         if (record.date.getDay() === 5) {
           fridayBonus = dailyRate;
@@ -858,16 +900,33 @@ router.put('/:id', auth, async (req, res) => {
           extraHours = workHours / 2;
           extraHoursCompensation = extraHours * extraHourRate;
           calculatedWorkDays = 2;
+          hoursDeduction = 0;
+        } else if (workHours < NORMAL_WORK_HOURS) {
+          hoursDeduction = NORMAL_WORK_HOURS - workHours;
+          extraHours = 0;
+          extraHoursCompensation = 0;
+          calculatedWorkDays = 1;
         } else if (workHours > NORMAL_WORK_HOURS) {
           extraHours = workHours - NORMAL_WORK_HOURS;
           extraHoursCompensation = extraHours * extraHourRate;
           calculatedWorkDays = 1;
+          hoursDeduction = 0;
         } else {
           extraHours = 0;
           extraHoursCompensation = 0;
           calculatedWorkDays = 1;
+          hoursDeduction = 0;
         }
         if (isFriday && record.checkIn) {
+          fridayBonus = dailyRate;
+        }
+      } else if ((user.shiftType === 'dayStation' || user.shiftType === 'nightStation') && (record.checkIn || record.checkOut)) {
+        workHours = NORMAL_WORK_HOURS;
+        extraHours = 0;
+        extraHoursCompensation = 0;
+        calculatedWorkDays = 1;
+        hoursDeduction = 0;
+        if (record.date.getDay() === 5 && record.checkIn) {
           fridayBonus = dailyRate;
         }
       } else {
@@ -875,6 +934,7 @@ router.put('/:id', auth, async (req, res) => {
         extraHours = 0;
         extraHoursCompensation = 0;
         workHours = 0;
+        hoursDeduction = 0;
         if (record.date.getDay() === 5 && record.checkIn) {
           fridayBonus = dailyRate;
         }
@@ -883,6 +943,7 @@ router.put('/:id', auth, async (req, res) => {
       record.workHours = workHours;
       record.extraHours = extraHours;
       record.extraHoursCompensation = extraHoursCompensation;
+      record.hoursDeduction = hoursDeduction;
       record.calculatedWorkDays = calculatedWorkDays;
       record.leaveCompensation = 0;
       record.medicalLeaveDeduction = 0;
@@ -890,7 +951,7 @@ router.put('/:id', auth, async (req, res) => {
 
     record.monthlyLateAllowance = monthlyLateAllowance;
     record.annualLeaveBalance = annualLeaveBalance;
-    record.workingDays = user.workingDays; // استخدام القيمة الأصلية
+    record.workingDays = user.workingDays;
 
     await record.save();
 
@@ -932,14 +993,17 @@ router.put('/:id', auth, async (req, res) => {
           subRecord.calculatedWorkDays = 1;
           subRecord.extraHours = 0;
           subRecord.extraHoursCompensation = 0;
+          subRecord.hoursDeduction = 0;
         } else if (hoursWorked >= 24) {
           subRecord.calculatedWorkDays = 2;
           subRecord.extraHours = 6;
           subRecord.extraHoursCompensation = 6 * regularHourRate;
+          subRecord.hoursDeduction = 0;
         } else {
           subRecord.calculatedWorkDays = 1;
           subRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
           subRecord.extraHoursCompensation = (hoursWorked - NORMAL_WORK_HOURS) * regularHourRate;
+          subRecord.hoursDeduction = 0;
         }
         if (subRecord.date.getDay() === 5) {
           subRecord.fridayBonus = dailyRate;
@@ -961,18 +1025,36 @@ router.put('/:id', auth, async (req, res) => {
           subRecord.extraHours = hoursWorked / 2;
           subRecord.extraHoursCompensation = subRecord.extraHours * extraHourRate;
           subRecord.calculatedWorkDays = 2;
+          subRecord.hoursDeduction = 0;
+        } else if (hoursWorked < NORMAL_WORK_HOURS) {
+          subRecord.workHours = hoursWorked;
+          subRecord.hoursDeduction = NORMAL_WORK_HOURS - hoursWorked;
+          subRecord.extraHours = 0;
+          subRecord.extraHoursCompensation = 0;
+          subRecord.calculatedWorkDays = 1;
         } else if (hoursWorked > NORMAL_WORK_HOURS) {
           subRecord.workHours = hoursWorked;
           subRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
           subRecord.extraHoursCompensation = subRecord.extraHours * extraHourRate;
           subRecord.calculatedWorkDays = 1;
+          subRecord.hoursDeduction = 0;
         } else {
           subRecord.workHours = hoursWorked;
           subRecord.extraHours = 0;
           subRecord.extraHoursCompensation = 0;
           subRecord.calculatedWorkDays = 1;
+          subRecord.hoursDeduction = 0;
         }
         if (isFriday && subRecord.checkIn) {
+          subRecord.fridayBonus = dailyRate;
+        }
+      } else if ((user.shiftType === 'dayStation' || user.shiftType === 'nightStation') && (subRecord.checkIn || subRecord.checkOut)) {
+        subRecord.workHours = NORMAL_WORK_HOURS;
+        subRecord.extraHours = 0;
+        subRecord.extraHoursCompensation = 0;
+        subRecord.calculatedWorkDays = 1;
+        subRecord.hoursDeduction = 0;
+        if (subRecord.date.getDay() === 5 && subRecord.checkIn) {
           subRecord.fridayBonus = dailyRate;
         }
       } else {
@@ -980,6 +1062,7 @@ router.put('/:id', auth, async (req, res) => {
         subRecord.extraHours = 0;
         subRecord.extraHoursCompensation = 0;
         subRecord.workHours = 0;
+        subRecord.hoursDeduction = 0;
         if (subRecord.date.getDay() === 5 && subRecord.checkIn) {
           subRecord.fridayBonus = dailyRate;
         }
@@ -987,7 +1070,7 @@ router.put('/:id', auth, async (req, res) => {
       subRecord.monthlyLateAllowance = currentMonthlyAllowance;
       subRecord.annualLeaveBalance = currentAnnualLeaveBalance;
       subRecord.employeeName = user.employeeName;
-      subRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+      subRecord.workingDays = user.workingDays;
       await subRecord.save();
     }
 
@@ -996,7 +1079,6 @@ router.put('/:id', auth, async (req, res) => {
       { $set: { monthlyLateAllowance: currentMonthlyAllowance, annualLeaveBalance: currentAnnualLeaveBalance } }
     );
 
-    // تحويل workingDays للعرض في الاستجابة
     const responseRecord = { ...record.toObject(), workingDays: formatWorkingDays(record.workingDays) };
     console.log(`Updated record: ${JSON.stringify(responseRecord, null, 2)}`);
     res.json({ message: 'تم تعديل السجل بنجاح', record: responseRecord });
@@ -1060,12 +1142,13 @@ router.post('/official_leave', auth, async (req, res) => {
           existingRecord.extraHours = 0;
           existingRecord.extraHoursCompensation = 0;
           existingRecord.workHours = 0;
+          existingRecord.hoursDeduction = 0;
           existingRecord.fridayBonus = 0;
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance;
           existingRecord.employeeName = user.employeeName;
           existingRecord.shiftType = user.shiftType;
-          existingRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+          existingRecord.workingDays = user.workingDays;
           await existingRecord.save();
           console.log(`Updated official leave for ${user.code} on ${d.toISOString()}`);
         } else {
@@ -1075,13 +1158,14 @@ router.post('/official_leave', auth, async (req, res) => {
             date: d,
             status: 'official_leave',
             shiftType: user.shiftType,
-            workingDays: user.workingDays, // استخدام القيمة الأصلية
+            workingDays: user.workingDays,
             lateMinutes: 0,
             deductedDays: 0,
             calculatedWorkDays: 0,
             extraHours: 0,
             extraHoursCompensation: 0,
             workHours: 0,
+            hoursDeduction: 0,
             fridayBonus: 0,
             annualLeaveBalance,
             monthlyLateAllowance,
@@ -1136,14 +1220,17 @@ router.post('/official_leave', auth, async (req, res) => {
             subRecord.calculatedWorkDays = 1;
             subRecord.extraHours = 0;
             subRecord.extraHoursCompensation = 0;
+            subRecord.hoursDeduction = 0;
           } else if (hoursWorked >= 24) {
             subRecord.calculatedWorkDays = 2;
             subRecord.extraHours = 6;
             subRecord.extraHoursCompensation = 6 * regularHourRate;
+            subRecord.hoursDeduction = 0;
           } else {
             subRecord.calculatedWorkDays = 1;
             subRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
             subRecord.extraHoursCompensation = (hoursWorked - NORMAL_WORK_HOURS) * regularHourRate;
+            subRecord.hoursDeduction = 0;
           }
           if (subRecord.date.getDay() === 5) {
             subRecord.fridayBonus = dailyRate;
@@ -1165,18 +1252,36 @@ router.post('/official_leave', auth, async (req, res) => {
             subRecord.extraHours = hoursWorked / 2;
             subRecord.extraHoursCompensation = subRecord.extraHours * extraHourRate;
             subRecord.calculatedWorkDays = 2;
+            subRecord.hoursDeduction = 0;
+          } else if (hoursWorked < NORMAL_WORK_HOURS) {
+            subRecord.workHours = hoursWorked;
+            subRecord.hoursDeduction = NORMAL_WORK_HOURS - hoursWorked;
+            subRecord.extraHours = 0;
+            subRecord.extraHoursCompensation = 0;
+            subRecord.calculatedWorkDays = 1;
           } else if (hoursWorked > NORMAL_WORK_HOURS) {
             subRecord.workHours = hoursWorked;
             subRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
             subRecord.extraHoursCompensation = subRecord.extraHours * extraHourRate;
             subRecord.calculatedWorkDays = 1;
+            subRecord.hoursDeduction = 0;
           } else {
             subRecord.workHours = hoursWorked;
             subRecord.extraHours = 0;
             subRecord.extraHoursCompensation = 0;
             subRecord.calculatedWorkDays = 1;
+            subRecord.hoursDeduction = 0;
           }
           if (isFriday && subRecord.checkIn) {
+            subRecord.fridayBonus = dailyRate;
+          }
+        } else if ((user.shiftType === 'dayStation' || user.shiftType === 'nightStation') && (subRecord.checkIn || subRecord.checkOut)) {
+          subRecord.workHours = NORMAL_WORK_HOURS;
+          subRecord.extraHours = 0;
+          subRecord.extraHoursCompensation = 0;
+          subRecord.calculatedWorkDays = 1;
+          subRecord.hoursDeduction = 0;
+          if (subRecord.date.getDay() === 5 && subRecord.checkIn) {
             subRecord.fridayBonus = dailyRate;
           }
         } else {
@@ -1184,6 +1289,7 @@ router.post('/official_leave', auth, async (req, res) => {
           subRecord.extraHours = 0;
           subRecord.extraHoursCompensation = 0;
           subRecord.workHours = 0;
+          subRecord.hoursDeduction = 0;
           if (subRecord.date.getDay() === 5 && subRecord.checkIn) {
             subRecord.fridayBonus = dailyRate;
           }
@@ -1191,7 +1297,7 @@ router.post('/official_leave', auth, async (req, res) => {
         subRecord.monthlyLateAllowance = currentMonthlyAllowance;
         subRecord.annualLeaveBalance = currentAnnualLeaveBalance;
         subRecord.employeeName = user.employeeName;
-        subRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+        subRecord.workingDays = user.workingDays;
         await subRecord.save();
       }
 
@@ -1280,6 +1386,7 @@ router.post('/annual_leave', auth, async (req, res) => {
           existingRecord.extraHours = 0;
           existingRecord.extraHoursCompensation = 0;
           existingRecord.workHours = 0;
+          existingRecord.hoursDeduction = 0;
           existingRecord.fridayBonus = 0;
           existingRecord.monthlyLateAllowance = monthlyLateAllowance;
           existingRecord.annualLeaveBalance = annualLeaveBalance - 1;
@@ -1287,7 +1394,7 @@ router.post('/annual_leave', auth, async (req, res) => {
           existingRecord.leaveCompensation = 0;
           existingRecord.medicalLeaveDeduction = medicalLeaveDeduction;
           existingRecord.shiftType = user.shiftType;
-          existingRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+          existingRecord.workingDays = user.workingDays;
           await existingRecord.save();
           console.log(`Updated ${status} for ${user.code} on ${d.toISOString()}`);
         } else {
@@ -1297,13 +1404,14 @@ router.post('/annual_leave', auth, async (req, res) => {
             date: d,
             status,
             shiftType: user.shiftType,
-            workingDays: user.workingDays, // استخدام القيمة الأصلية
+            workingDays: user.workingDays,
             lateMinutes: 0,
             deductedDays: 0,
             calculatedWorkDays: 0,
             extraHours: 0,
             extraHoursCompensation: 0,
             workHours: 0,
+            hoursDeduction: 0,
             fridayBonus: 0,
             annualLeaveBalance: annualLeaveBalance - 1,
             monthlyLateAllowance,
@@ -1359,14 +1467,17 @@ router.post('/annual_leave', auth, async (req, res) => {
             subRecord.calculatedWorkDays = 1;
             subRecord.extraHours = 0;
             subRecord.extraHoursCompensation = 0;
+            subRecord.hoursDeduction = 0;
           } else if (hoursWorked >= 24) {
             subRecord.calculatedWorkDays = 2;
             subRecord.extraHours = 6;
             subRecord.extraHoursCompensation = 6 * regularHourRate;
+            subRecord.hoursDeduction = 0;
           } else {
             subRecord.calculatedWorkDays = 1;
             subRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
             subRecord.extraHoursCompensation = (hoursWorked - NORMAL_WORK_HOURS) * regularHourRate;
+            subRecord.hoursDeduction = 0;
           }
           if (subRecord.date.getDay() === 5) {
             subRecord.fridayBonus = dailyRate;
@@ -1388,18 +1499,36 @@ router.post('/annual_leave', auth, async (req, res) => {
             subRecord.extraHours = hoursWorked / 2;
             subRecord.extraHoursCompensation = subRecord.extraHours * extraHourRate;
             subRecord.calculatedWorkDays = 2;
+            subRecord.hoursDeduction = 0;
+          } else if (hoursWorked < NORMAL_WORK_HOURS) {
+            subRecord.workHours = hoursWorked;
+            subRecord.hoursDeduction = NORMAL_WORK_HOURS - hoursWorked;
+            subRecord.extraHours = 0;
+            subRecord.extraHoursCompensation = 0;
+            subRecord.calculatedWorkDays = 1;
           } else if (hoursWorked > NORMAL_WORK_HOURS) {
             subRecord.workHours = hoursWorked;
             subRecord.extraHours = hoursWorked - NORMAL_WORK_HOURS;
             subRecord.extraHoursCompensation = subRecord.extraHours * extraHourRate;
             subRecord.calculatedWorkDays = 1;
+            subRecord.hoursDeduction = 0;
           } else {
             subRecord.workHours = hoursWorked;
             subRecord.extraHours = 0;
             subRecord.extraHoursCompensation = 0;
             subRecord.calculatedWorkDays = 1;
+            subRecord.hoursDeduction = 0;
           }
           if (isFriday && subRecord.checkIn) {
+            subRecord.fridayBonus = dailyRate;
+          }
+        } else if ((user.shiftType === 'dayStation' || user.shiftType === 'nightStation') && (subRecord.checkIn || subRecord.checkOut)) {
+          subRecord.workHours = NORMAL_WORK_HOURS;
+          subRecord.extraHours = 0;
+          subRecord.extraHoursCompensation = 0;
+          subRecord.calculatedWorkDays = 1;
+          subRecord.hoursDeduction = 0;
+          if (subRecord.date.getDay() === 5 && subRecord.checkIn) {
             subRecord.fridayBonus = dailyRate;
           }
         } else {
@@ -1407,6 +1536,7 @@ router.post('/annual_leave', auth, async (req, res) => {
           subRecord.extraHours = 0;
           subRecord.extraHoursCompensation = 0;
           subRecord.workHours = 0;
+          subRecord.hoursDeduction = 0;
           if (subRecord.date.getDay() === 5 && subRecord.checkIn) {
             subRecord.fridayBonus = dailyRate;
           }
@@ -1414,7 +1544,7 @@ router.post('/annual_leave', auth, async (req, res) => {
         subRecord.monthlyLateAllowance = currentMonthlyAllowance;
         subRecord.annualLeaveBalance = currentAnnualLeaveBalance;
         subRecord.employeeName = user.employeeName;
-        subRecord.workingDays = user.workingDays; // استخدام القيمة الأصلية
+        subRecord.workingDays = user.workingDays;
         await subRecord.save();
       }
 
@@ -1467,6 +1597,7 @@ function calculateLateMinutes(user, checkInTime) {
 }
 
 // دالة لحساب الأيام المستقطعة
+// دالة لحساب الأيام المستقطعة
 function calculateDeductedDays(lateMinutes, checkInTime) {
   if (!checkInTime || lateMinutes <= 0) return 0;
   const [hours, minutes] = checkInTime.split(':').map(Number);
@@ -1483,15 +1614,16 @@ function calculateDeductedDays(lateMinutes, checkInTime) {
   time1720.setHours(17, 20);
 
   if (checkIn >= time0916 && checkIn <= time1100) {
-    return 0.25;
+    return 0.25; // خصم ربع يوم للتأخير بين 9:16 و11:00
   } else if (checkIn > time1100 && checkIn <= time1600) {
-    return 0.5;
+    return 0.5; // خصم نصف يوم للتأخير بين 11:00 و16:00
   } else if (checkIn > time1600 && checkIn <= time1720) {
-    return 0.25;
+    return 1; // خصم يوم كامل للتأخير بين 16:00 و17:20
   } else if (checkIn > time1720) {
-    return 1;
+    return 1; // خصم يوم كامل للتأخير بعد 17:20
   }
   return 0;
 }
 
+// إغلاق الملف
 module.exports = router;

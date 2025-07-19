@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../components/AuthProvider';
-import LoadingSpinner from '../components/LoadingSpinner';
-import SuccessCheckmark from '../components/SuccessCheckmark';
 import { Trash2, Edit2, Search, Plus } from 'lucide-react';
 
 const EditUser = () => {
@@ -47,7 +45,6 @@ const EditUser = () => {
     excludedUsers: [],
   });
 
-  // التحقق من صلاحيات المستخدم وجلب جميع الموظفين عند التحميل
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/login');
@@ -56,7 +53,6 @@ const EditUser = () => {
     handleShowAll();
   }, [user, navigate]);
 
-  // دالة البحث عن موظف باستخدام الكود
   const handleSearch = async () => {
     setError('');
     setLoading(true);
@@ -76,7 +72,6 @@ const EditUser = () => {
     }
   };
 
-  // دالة جلب جميع الموظفين
   const handleShowAll = async () => {
     setSearchCode('');
     setError('');
@@ -94,7 +89,6 @@ const EditUser = () => {
     }
   };
 
-  // دالة تحديد موظف للتعديل
   const handleEdit = (user) => {
     setSelectedUser(user);
     setForm({
@@ -116,7 +110,6 @@ const EditUser = () => {
     });
   };
 
-  // دالة حذف موظف
   const handleDelete = async (userId) => {
     setError('');
     setLoading(true);
@@ -136,7 +129,6 @@ const EditUser = () => {
     }
   };
 
-  // دالة التعامل مع تغييرات النموذج الفردي
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => {
@@ -158,7 +150,6 @@ const EditUser = () => {
     });
   };
 
-  // دالة التعامل مع إرسال نموذج تعديل الموظف الفردي
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -200,7 +191,7 @@ const EditUser = () => {
         socialInsurance: parseFloat(form.socialInsurance),
         mealAllowance: parseFloat(form.mealAllowance),
         annualLeaveBalance: parseInt(form.annualLeaveBalance),
-        monthlyLateAllowance: parseInt(form.monthlyLateAllowance),
+        monthlyDelayAllowance: parseInt(form.monthlyDelayAllowance),
         netSalary: parseFloat(form.netSalary),
         updatedBy: user._id,
       };
@@ -230,13 +221,11 @@ const EditUser = () => {
     }
   };
 
-  // دالة التعامل مع تغييرات التعديل الجماعي
   const handleBulkUpdateChange = (e) => {
     const { name, value } = e.target;
     setBulkUpdateData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // دالة استثناء موظف من التعديل الجماعي
   const handleExcludeUser = (userId) => {
     setBulkUpdateData((prev) => ({
       ...prev,
@@ -246,7 +235,6 @@ const EditUser = () => {
     }));
   };
 
-  // دالة إرسال التعديل الجماعي
   const handleBulkUpdateSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -309,33 +297,66 @@ const EditUser = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-7xl font-amiri">
+    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
       <AnimatePresence>
         {loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
           >
-            <LoadingSpinner />
+            <div className="bg-white p-8 rounded-full shadow-lg border border-blue-100">
+              <div className="relative flex flex-col items-center justify-center">
+                <svg className="w-12 h-12" viewBox="0 0 50 50">
+                  <motion.circle
+                    cx="25"
+                    cy="25"
+                    r="20"
+                    fill="none"
+                    stroke="#60A5FA"
+                    strokeWidth="4"
+                    strokeDasharray="80 200"
+                    strokeLinecap="round"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                  />
+                </svg>
+                <span className="mt-4 text-sm font-semibold text-blue-400">
+                  جارٍ التحميل...
+                </span>
+              </div>
+            </div>
           </motion.div>
         )}
-        {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed top-4 right-4 bg-green-100 text-green-600 p-4 rounded-xl shadow-lg flex items-center gap-2 z-50 font-cairo"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            تمت العملية بنجاح
+          </motion.div>
+        )}
         {showDeleteConfirm && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white p-6 rounded-lg shadow-xl border border-gray-200 text-right max-w-md w-full"
+              className="bg-white p-6 rounded-xl shadow-lg border border-purple-100 text-right max-w-md w-full font-cairo"
             >
-              <h3 className="text-lg font-semibold text-blue-600 mb-4">
+              <h3 className="text-xl font-bold text-purple-600 mb-4">
                 تأكيد الحذف
               </h3>
               <p className="text-sm text-gray-600 mb-6">
@@ -346,7 +367,7 @@ const EditUser = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleDelete(showDeleteConfirm._id)}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-medium"
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold"
                 >
                   حذف
                 </motion.button>
@@ -354,7 +375,7 @@ const EditUser = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowDeleteConfirm(null)}
-                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium"
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold"
                 >
                   إلغاء
                 </motion.button>
@@ -367,27 +388,27 @@ const EditUser = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white p-6 rounded-lg shadow-xl border border-gray-200 text-right max-w-4xl w-full"
+              className="bg-white p-8 rounded-xl shadow-lg border border-purple-100 text-right max-w-4xl w-full font-cairo"
             >
-              <h3 className="text-lg font-semibold text-blue-600 mb-4">
+              <h3 className="text-xl font-bold text-purple-600 mb-6">
                 {bulkUpdateType === 'baseSalary' && 'زيادة نسبة الراتب الأساسي'}
-                {bulkUpdateType === 'monthlyLateAllowance' && 'تعديل دقائق السماح الشهري'}
+                {bulkUpdateType === 'monthlyLateAllowance' && 'تعديل دقائق التأخير الشهري'}
                 {bulkUpdateType === 'annualLeaveBalance' && 'تعديل رصيد الإجازة السنوية'}
                 {bulkUpdateType === 'baseBonus' && 'تعديل الحافز الأساسي'}
                 {bulkUpdateType === 'medicalInsurance' && 'تعديل التأمين الطبي'}
                 {bulkUpdateType === 'socialInsurance' && 'تعديل التأمين الاجتماعي'}
               </h3>
               <form onSubmit={handleBulkUpdateSubmit}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                   {bulkUpdateType === 'baseSalary' && (
                     <div>
-                      <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+                      <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                         النسبة المئوية (%)
                       </label>
                       <input
@@ -395,7 +416,7 @@ const EditUser = () => {
                         name="percentage"
                         value={bulkUpdateData.percentage}
                         onChange={handleBulkUpdateChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50"
+                        className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                         min="0"
                         step="0.01"
                         required
@@ -405,7 +426,7 @@ const EditUser = () => {
                   )}
                   {['monthlyLateAllowance', 'annualLeaveBalance', 'baseBonus', 'medicalInsurance', 'socialInsurance'].includes(bulkUpdateType) && (
                     <div>
-                      <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+                      <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                         القيمة الجديدة
                       </label>
                       <input
@@ -413,7 +434,7 @@ const EditUser = () => {
                         name={bulkUpdateType}
                         value={bulkUpdateData[bulkUpdateType]}
                         onChange={handleBulkUpdateChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50"
+                        className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                         min="0"
                         step={['baseBonus', 'medicalInsurance', 'socialInsurance'].includes(bulkUpdateType) ? '0.01' : '1'}
                         required
@@ -422,14 +443,14 @@ const EditUser = () => {
                     </div>
                   )}
                   <div>
-                    <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+                    <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                       نوع الشيفت (اختياري)
                     </label>
                     <select
                       name="shiftType"
                       value={bulkUpdateData.shiftType}
                       onChange={handleBulkUpdateChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading}
                     >
                       <option value="">الجميع</option>
@@ -440,36 +461,36 @@ const EditUser = () => {
                     </select>
                   </div>
                 </div>
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-600 mb-2 text-right">
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 text-right">
                     استثناء الموظفين
                   </h4>
-                  <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200">
+                  <div className="max-h-64 overflow-y-auto rounded-lg border border-blue-100 bg-white">
                     <table className="w-full text-right">
                       <thead>
-                        <tr className="bg-blue-50 sticky top-0">
-                          <th className="p-3 text-sm font-medium">استثناء</th>
-                          <th className="p-3 text-sm font-medium">كود الموظف</th>
-                          <th className="p-3 text-sm font-medium">الاسم</th>
-                          <th className="p-3 text-sm font-medium">القسم</th>
-                          <th className="p-3 text-sm font-medium">نوع الشيفت</th>
+                        <tr className="bg-purple-100 sticky top-0">
+                          <th className="p-4 text-sm font-semibold">استثناء</th>
+                          <th className="p-4 text-sm font-semibold">كود الموظف</th>
+                          <th className="p-4 text-sm font-semibold">الاسم</th>
+                          <th className="p-4 text-sm font-semibold">القسم</th>
+                          <th className="p-4 text-sm font-semibold">نوع الشيفت</th>
                         </tr>
                       </thead>
                       <tbody>
                         {users.map((u) => (
-                          <tr key={u._id} className="border-b hover:bg-gray-50">
-                            <td className="p-3">
+                          <tr key={u._id} className="border-b hover:bg-blue-50">
+                            <td className="p-4">
                               <input
                                 type="checkbox"
                                 checked={bulkUpdateData.excludedUsers.includes(u._id)}
                                 onChange={() => handleExcludeUser(u._id)}
-                                className="h-4 w-4 text-blue-600"
+                                className="h-4 w-4 text-blue-400 rounded focus:ring-blue-400"
                               />
                             </td>
-                            <td className="p-3 text-sm">{u.code}</td>
-                            <td className="p-3 text-sm">{u.employeeName}</td>
-                            <td className="p-3 text-sm">{u.department}</td>
-                            <td className="p-3 text-sm">
+                            <td className="p-4 text-sm">{u.code}</td>
+                            <td className="p-4 text-sm">{u.employeeName}</td>
+                            <td className="p-4 text-sm">{u.department}</td>
+                            <td className="p-4 text-sm">
                               {u.shiftType === 'administrative' ? 'إداري' :
                                u.shiftType === 'dayStation' ? 'محطة نهارًا' :
                                u.shiftType === 'nightStation' ? 'محطة ليلًا' : '24/24'}
@@ -486,7 +507,7 @@ const EditUser = () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     تطبيق التعديلات
                   </motion.button>
@@ -496,7 +517,7 @@ const EditUser = () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`bg-gray-500 text-white px-5 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     إلغاء
                   </motion.button>
@@ -510,9 +531,9 @@ const EditUser = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-200"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-7xl mx-auto font-cairo"
       >
-        <h2 className="text-2xl font-bold text-blue-600 mb-6 sm:mb-8 text-right">
+        <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">
           إدارة الموظفين
         </h2>
         {error && (
@@ -520,79 +541,44 @@ const EditUser = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 text-right text-sm font-medium"
+            className="bg-purple-50 text-gray-600 p-4 rounded-lg mb-6 text-right text-sm font-semibold"
           >
             {error}
           </motion.div>
         )}
-        <div className="flex flex-wrap gap-3 mb-6">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setBulkUpdateType('baseSalary')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            زيادة نسبة الراتب الأساسي
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setBulkUpdateType('monthlyLateAllowance')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            تعديل دقائق السماح الشهري
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setBulkUpdateType('annualLeaveBalance')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            تعديل رصيد الإجازة السنوية
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setBulkUpdateType('baseBonus')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            تعديل الحافز الأساسي
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setBulkUpdateType('medicalInsurance')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            تعديل التأمين الطبي
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setBulkUpdateType('socialInsurance')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 text-sm font-medium flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            تعديل التأمين الاجتماعي
-          </motion.button>
+        <div className="flex flex-wrap gap-4 mb-8">
+          {[
+            { type: 'baseSalary', label: 'زيادة نسبة الراتب الأساسي' },
+            { type: 'monthlyLateAllowance', label: 'تعديل دقائق التأخير الشهري' },
+            { type: 'annualLeaveBalance', label: 'تعديل رصيد الإجازة السنوية' },
+            { type: 'baseBonus', label: 'تعديل الحافز الأساسي' },
+            { type: 'medicalInsurance', label: 'تعديل التأمين الطبي' },
+            { type: 'socialInsurance', label: 'تعديل التأمين الاجتماعي' },
+          ].map(({ type, label }) => (
+            <motion.button
+              key={type}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setBulkUpdateType(type)}
+              className="bg-blue-400 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold flex items-center gap-2 shadow-md"
+            >
+              <Plus className="h-4 w-4" />
+              {label}
+            </motion.button>
+          ))}
         </div>
         {!selectedUser ? (
           <div>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <div className="flex-1">
-                <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
+                <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                   كود الموظف
                 </label>
                 <input
                   type="text"
                   value={searchCode}
                   onChange={(e) => setSearchCode(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                  className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                   placeholder="أدخل كود الموظف"
                   disabled={loading}
                 />
@@ -602,7 +588,7 @@ const EditUser = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSearch}
-                  className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                  className="bg-blue-400 text-white px-4 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold flex items-center gap-2 shadow-md"
                   disabled={loading}
                 >
                   <Search className="h-4 w-4" />
@@ -612,7 +598,7 @@ const EditUser = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleShowAll}
-                  className="bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium"
+                  className="bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md"
                   disabled={loading}
                 >
                   عرض الكل
@@ -620,54 +606,54 @@ const EditUser = () => {
               </div>
             </div>
             {filteredUsers.length > 0 && (
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <div className="overflow-x-auto rounded-lg border border-blue-100 bg-white">
                 <table className="w-full text-right">
                   <thead>
-                    <tr className="bg-blue-50">
-                      <th className="p-3 text-sm font-medium">كود الموظف</th>
-                      <th className="p-3 text-sm font-medium">الاسم</th>
-                      <th className="p-3 text-sm font-medium">القسم</th>
-                      <th className="p-3 text-sm font-medium">الراتب الأساسي</th>
-                      <th className="p-3 text-sm font-medium">الحافز الأساسي</th>
-                      <th className="p-3 text-sm font-medium">نسبة الحافز (%)</th>
-                      <th className="p-3 text-sm font-medium">التأمين الطبي</th>
-                      <th className="p-3 text-sm font-medium">التأمين الاجتماعي</th>
-                      <th className="p-3 text-sm font-medium">بدل وجبة</th>
-                      <th className="p-3 text-sm font-medium">أيام العمل</th>
-                      <th className="p-3 text-sm font-medium">نوع الشيفت</th>
-                      <th className="p-3 text-sm font-medium">رصيد الإجازة</th>
-                      <th className="p-3 text-sm font-medium">دقائق السماح</th>
-                      <th className="p-3 text-sm font-medium">الصافي</th>
-                      <th className="p-3 text-sm font-medium">الإجراءات</th>
+                    <tr className="bg-purple-100">
+                      <th className="p-4 text-sm font-semibold">كود الموظف</th>
+                      <th className="p-4 text-sm font-semibold">الاسم</th>
+                      <th className="p-4 text-sm font-semibold">القسم</th>
+                      <th className="p-4 text-sm font-semibold">الراتب الأساسي</th>
+                      <th className="p-4 text-sm font-semibold">الحافز الأساسي</th>
+                      <th className="p-4 text-sm font-semibold">نسبة الحافز (%)</th>
+                      <th className="p-4 text-sm font-semibold">التأمين الطبي</th>
+                      <th className="p-4 text-sm font-semibold">التأمين الاجتماعي</th>
+                      <th className="p-4 text-sm font-semibold">بدل وجبة</th>
+                      <th className="p-4 text-sm font-semibold">أيام العمل</th>
+                      <th className="p-4 text-sm font-semibold">نوع الشيفت</th>
+                      <th className="p-4 text-sm font-semibold">رصيد الإجازة</th>
+                      <th className="p-4 text-sm font-semibold">دقائق التأخير</th>
+                      <th className="p-4 text-sm font-semibold">الصافي</th>
+                      <th className="p-4 text-sm font-semibold">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUsers.map((u) => (
-                      <tr key={u._id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 text-sm">{u.code}</td>
-                        <td className="p-3 text-sm">{u.employeeName}</td>
-                        <td className="p-3 text-sm">{u.department}</td>
-                        <td className="p-3 text-sm">{u.baseSalary.toFixed(2)}</td>
-                        <td className="p-3 text-sm">{u.baseBonus.toFixed(2)}</td>
-                        <td className="p-3 text-sm">{u.bonusPercentage.toFixed(2)}</td>
-                        <td className="p-3 text-sm">{u.medicalInsurance.toFixed(2)}</td>
-                        <td className="p-3 text-sm">{u.socialInsurance.toFixed(2)}</td>
-                        <td className="p-3 text-sm">{u.mealAllowance.toFixed(2)}</td>
-                        <td className="p-3 text-sm">{u.workingDays === '5' ? '5 أيام' : '6 أيام'}</td>
-                        <td className="p-3 text-sm">
+                      <tr key={u._id} className="border-b hover:bg-blue-50">
+                        <td className="p-4 text-sm">{u.code}</td>
+                        <td className="p-4 text-sm">{u.employeeName}</td>
+                        <td className="p-4 text-sm">{u.department}</td>
+                        <td className="p-4 text-sm">{u.baseSalary.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.baseBonus.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.bonusPercentage.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.medicalInsurance.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.socialInsurance.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.mealAllowance.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.workingDays === '5' ? '5 أيام' : '6 أيام'}</td>
+                        <td className="p-4 text-sm">
                           {u.shiftType === 'administrative' ? 'إداري' :
                            u.shiftType === 'dayStation' ? 'محطة نهارًا' :
                            u.shiftType === 'nightStation' ? 'محطة ليلًا' : '24/24'}
                         </td>
-                        <td className="p-3 text-sm">{u.annualLeaveBalance}</td>
-                        <td className="p-3 text-sm">{u.monthlyLateAllowance}</td>
-                        <td className="p-3 text-sm">{u.netSalary.toFixed(2)}</td>
-                        <td className="p-3 text-sm flex gap-2">
+                        <td className="p-4 text-sm">{u.annualLeaveBalance}</td>
+                        <td className="p-4 text-sm">{u.monthlyLateAllowance}</td>
+                        <td className="p-4 text-sm">{u.netSalary.toFixed(2)}</td>
+                        <td className="p-4 text-sm flex gap-2">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleEdit(u)}
-                            className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-all duration-200"
+                            className="bg-blue-400 text-white px-3 py-2 rounded-lg hover:bg-blue-500 transition-all duration-200"
                           >
                             <Edit2 className="h-4 w-4" />
                           </motion.button>
@@ -675,7 +661,7 @@ const EditUser = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowDeleteConfirm(u)}
-                            className="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-all duration-200"
+                            className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200"
                           >
                             <Trash2 className="h-4 w-4" />
                           </motion.button>
@@ -688,232 +674,72 @@ const EditUser = () => {
             )}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                كود الموظف
-              </label>
-              <input
-                type="text"
-                name="code"
-                value={form.code}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                كلمة المرور (اتركها فارغة لعدم التغيير)
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                الاسم الكامل
-              </label>
-              <input
-                type="text"
-                name="employeeName"
-                value={form.employeeName}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                القسم
-              </label>
-              <input
-                type="text"
-                name="department"
-                value={form.department}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                الراتب الأساسي
-              </label>
-              <input
-                type="number"
-                name="baseSalary"
-                value={form.baseSalary}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                step="0.01"
-                required
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                الحافز الأساسي
-              </label>
-              <input
-                type="number"
-                name="baseBonus"
-                value={form.baseBonus}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                step="0.01"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                نسبة الحافز (%)
-              </label>
-              <input
-                type="number"
-                name="bonusPercentage"
-                value={form.bonusPercentage}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                max="100"
-                step="0.01"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                التأمين الطبي
-              </label>
-              <input
-                type="number"
-                name="medicalInsurance"
-                value={form.medicalInsurance}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                step="0.01"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                التأمين الاجتماعي
-              </label>
-              <input
-                type="number"
-                name="socialInsurance"
-                value={form.socialInsurance}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                step="0.01"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                بدل وجبة
-              </label>
-              <input
-                type="number"
-                name="mealAllowance"
-                value={form.mealAllowance}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                step="0.01"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                عدد أيام العمل
-              </label>
-              <select
-                name="workingDays"
-                value={form.workingDays}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                disabled={loading}
-              >
-                <option value="5">5 أيام (الجمعة والسبت إجازة)</option>
-                <option value="6">6 أيام (الجمعة إجازة)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                نوع الشيفت
-              </label>
-              <select
-                name="shiftType"
-                value={form.shiftType}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                disabled={loading}
-              >
-                <option value="administrative">إداري</option>
-                <option value="dayStation">محطة نهارًا</option>
-                <option value="nightStation">محطة ليلًا</option>
-                <option value="24/24">24/24</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                رصيد الإجازة السنوية
-              </label>
-              <input
-                type="number"
-                name="annualLeaveBalance"
-                value={form.annualLeaveBalance}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                رصيد دقائق السماح الشهري
-              </label>
-              <input
-                type="number"
-                name="monthlyLateAllowance"
-                value={form.monthlyLateAllowance}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
-                min="0"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-gray-600 text-sm font-medium mb-2 text-right">
-                الصافي
-              </label>
-              <input
-                type="text"
-                value={form.netSalary}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm bg-gray-50 cursor-not-allowed"
-                readOnly
-              />
-            </div>
-            <div className="sm:col-span-2 flex justify-end gap-3">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { name: 'code', label: 'كود الموظف', type: 'text', required: true },
+              { name: 'password', label: 'كلمة المرور (اتركها فارغة لعدم التغيير)', type: 'password' },
+              { name: 'employeeName', label: 'الاسم الكامل', type: 'text', required: true },
+              { name: 'department', label: 'القسم', type: 'text', required: true },
+              { name: 'baseSalary', label: 'الراتب الأساسي', type: 'number', min: '0', step: '0.01', required: true },
+              { name: 'baseBonus', label: 'الحافز الأساسي', type: 'number', min: '0', step: '0.01' },
+              { name: 'bonusPercentage', label: 'نسبة الحافز (%)', type: 'number', min: '0', max: '100', step: '0.01' },
+              { name: 'medicalInsurance', label: 'التأمين الطبي', type: 'number', min: '0', step: '0.01' },
+              { name: 'socialInsurance', label: 'التأمين الاجتماعي', type: 'number', min: '0', step: '0.01' },
+              { name: 'mealAllowance', label: 'بدل وجبة', type: 'number', min: '0', step: '0.01' },
+              { name: 'workingDays', label: 'عدد أيام العمل', type: 'select', options: [
+                { value: '5', label: '5 أيام (الجمعة والسبت إجازة)' },
+                { value: '6', label: '6 أيام (الجمعة إجازة)' },
+              ]},
+              { name: 'shiftType', label: 'نوع الشيفت', type: 'select', options: [
+                { value: 'administrative', label: 'إداري' },
+                { value: 'dayStation', label: 'محطة نهارًا' },
+                { value: 'nightStation', label: 'محطة ليلًا' },
+                { value: '24/24', label: '24/24' },
+              ]},
+              { name: 'annualLeaveBalance', label: 'رصيد الإجازة السنوية', type: 'number', min: '0' },
+              { name: 'monthlyLateAllowance', label: 'رصيد دقائق التأخير الشهري', type: 'number', min: '0' },
+              { name: 'netSalary', label: 'الصافي', type: 'text', readOnly: true },
+            ].map((field) => (
+              <div key={field.name}>
+                <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
+                  {field.label}
+                </label>
+                {field.type === 'select' ? (
+                  <select
+                    name={field.name}
+                    value={form[field.name]}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    disabled={loading}
+                  >
+                    {field.options.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={field.type}
+                    name={field.name}
+                    value={form[field.name]}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 ${field.readOnly ? 'cursor-not-allowed bg-gray-100' : 'hover:bg-blue-50'}`}
+                    min={field.min}
+                    max={field.max}
+                    step={field.step}
+                    required={field.required}
+                    readOnly={field.readOnly}
+                    disabled={loading}
+                  />
+                )}
+              </div>
+            ))}
+            <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-3">
               <motion.button
                 type="submit"
                 disabled={loading}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`w-full sm:w-auto bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {loading ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
               </motion.button>
@@ -923,7 +749,7 @@ const EditUser = () => {
                 disabled={loading}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`w-full sm:w-auto bg-gray-500 text-white px-5 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 إلغاء
               </motion.button>

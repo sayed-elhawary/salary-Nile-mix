@@ -18,7 +18,14 @@ const attendanceSchema = new mongoose.Schema({
   extraHoursCompensation: { type: Number, default: 0 },
   workHours: { type: Number, default: 0 },
   fridayBonus: { type: Number, default: 0 },
+  hoursDeduction: { type: Number, default: 0 }, // حقل جديد لخصم الساعات
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 });
+
+// ملاحظة: لحساب hoursDeduction تلقائيًا (مثلًا: 9 - workHours إذا كان workHours < 9 لشيفتات dayStation أو nightStation)،
+// يجب تحديث دالة processAttendance في attendance.controller.js لتشمل المنطق التالي:
+// if (['dayStation', 'nightStation'].includes(record.shiftType) && record.workHours < 9 && record.status === 'present') {
+//   record.hoursDeduction = (9 - record.workHours).toFixed(2);
+// }
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

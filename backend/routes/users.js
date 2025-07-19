@@ -221,6 +221,7 @@ router.get('/salary-report', auth, async (req, res) => {
             extraHours: 0,
             extraHoursCompensation: 0,
             workHours: 0,
+            hoursDeduction: 0, // إضافة حقل hoursDeduction الافتراضي
             fridayBonus: 0,
             annualLeaveBalance: user.annualLeaveBalance || 21,
             monthlyLateAllowance: user.monthlyLateAllowance || 120,
@@ -246,7 +247,8 @@ router.get('/salary-report', auth, async (req, res) => {
         totalFridayBonus = 0,
         totalLeaveCompensation = 0,
         totalMedicalLeaveDeduction = 0,
-        totalDeductedDaysFromAttendance = 0;
+        totalDeductedDaysFromAttendance = 0,
+        totalHoursDeduction = 0; // إضافة متغير لحساب إجمالي خصم الساعات
 
       attendanceRecords.forEach((record) => {
         switch (record.status) {
@@ -273,17 +275,24 @@ router.get('/salary-report', auth, async (req, res) => {
 
         totalWorkHours += parseFloat(record.workHours || 0);
         totalExtraHoursCompensation += parseFloat(record.extraHoursCompensation || 0);
-        totalFridayBonus += parseFloat(record.fridayBonus || 0);
+        totalHoursDeduction += parseFloat(record.hoursDeduction || 0); // جمع خصم الساعات
         totalLeaveCompensation += parseFloat(record.leaveCompensation || 0);
         totalDeductedDaysFromAttendance += parseFloat(record.deductedDays || 0);
+
+        // إضافة بدل الجمعة فقط إذا لم يكن الشيفت dayStation أو nightStation
+        if (!['dayStation', 'nightStation'].includes(user.shiftType)) {
+          totalFridayBonus += parseFloat(record.fridayBonus || 0);
+        }
       });
 
       const totalWorkDays = presentDays;
       const dailySalary = parseFloat(user.baseSalary || 0) / 30;
+      const hourlyRate = dailySalary / 9; // معدل الساعة بناءً على 9 ساعات عمل يوميًا
       const totalAbsentDeduction = absentDays * dailySalary;
       const totalMealAllowanceDeduction = (absentDays + leaveDays + medicalLeaveDays) * 50;
       const totalDeductions = totalDeductedDaysFromAttendance + (medicalLeaveDays * 0.25) + absentDays;
       const totalDeductionsAmount = totalDeductions * dailySalary;
+      const totalHoursDeductionAmount = totalHoursDeduction * hourlyRate; // خصم الساعات بالقيمة المالية
 
       // ضمان ألا يكون بدل الوجبة سالبًا
       const mealAllowanceAfterDeduction = parseFloat(user.mealAllowance || 500) - totalMealAllowanceDeduction;
@@ -294,8 +303,9 @@ router.get('/salary-report', auth, async (req, res) => {
         finalMealAllowance +
         totalLeaveCompensation +
         totalExtraHoursCompensation +
-        totalFridayBonus -
+        (['dayStation', 'nightStation'].includes(user.shiftType) ? 0 : totalFridayBonus) - // إزالة totalFridayBonus لـ dayStation وnightStation
         totalDeductionsAmount -
+        totalHoursDeductionAmount - // إضافة خصم الساعات
         (parseFloat(user.violationsDeduction || 0)) -
         (parseFloat(user.advancesDeduction || 0)) -
         (parseFloat(user.medicalInsurance || 0)) -
@@ -322,9 +332,10 @@ router.get('/salary-report', auth, async (req, res) => {
         totalWorkDays,
         totalWorkHours,
         totalExtraHoursCompensation,
-        totalFridayBonus,
+        totalFridayBonus: ['dayStation', 'nightStation'].includes(user.shiftType) ? 0 : totalFridayBonus, // إزالة totalFridayBonus لـ dayStation وnightStation
         totalAbsentDeduction,
         totalMealAllowanceDeduction,
+        totalHoursDeduction: parseFloat(totalHoursDeduction.toFixed(2)), // إضافة إجمالي خصم الساعات
         violationsTotal: parseFloat(user.violationsTotal || 0),
         violationsDeduction: parseFloat(user.violationsDeduction || 0),
         advancesTotal: parseFloat(user.advancesTotal || 0),

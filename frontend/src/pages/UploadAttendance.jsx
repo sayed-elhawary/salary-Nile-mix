@@ -40,6 +40,7 @@ const UploadAttendance = () => {
     isMedicalLeave: false,
   });
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -85,67 +86,68 @@ const UploadAttendance = () => {
     }
   };
 
-const handleSearch = async () => {
-  setError('');
-  setLoading(true);
+  const handleSearch = async () => {
+    setError('');
+    setLoading(true);
 
-  const token = localStorage.getItem('token');
-  const params = {
-    employeeCode,
-    startDate,
-    endDate,
-    filterPresent,
-    filterAbsent,
-    filterSingleCheckIn,
-    shiftType: shiftType === 'all' ? undefined : shiftType,
-  };
-  console.log('Params sent to API:', params); // تصحيح المعاملات
+    const token = localStorage.getItem('token');
+    const params = {
+      employeeCode,
+      startDate,
+      endDate,
+      filterPresent,
+      filterAbsent,
+      filterSingleCheckIn,
+      shiftType: shiftType === 'all' ? undefined : shiftType,
+    };
 
-  try {
-    const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/attendance`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params,
-    });
-    console.log('Received records:', response.data.records); // تصحيح السجلات
-    setRecords(response.data.records);
-    setSummaries(response.data.summaries);
-    if (response.data.records.length === 0) {
-      setError('لا توجد سجلات مطابقة لمعايير البحث.');
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/attendance`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+      setRecords(response.data.records);
+      setSummaries(response.data.summaries);
+      if (response.data.records.length === 0) {
+        setError('لا توجد سجلات مطابقة لمعايير البحث.');
+      }
+    } catch (err) {
+      setError(`خطأ أثناء البحث: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError(`خطأ أثناء البحث: ${err.response?.data?.message || err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
- const handleShowAll = async () => {
-  setError('');
-  setLoading(true);
-
-  const token = localStorage.getItem('token');
-  const params = {
-    startDate,
-    endDate,
-    shiftType: shiftType === 'all' ? undefined : shiftType, // إضافة shiftType
   };
 
-  try {
-    const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/attendance`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params,
-    });
-    setRecords(response.data.records);
-    setSummaries(response.data.summaries);
-  } catch (err) {
-    setError(`خطأ أثناء عرض جميع السجلات: ${err.response?.data?.message || err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleShowAll = async () => {
+    setError('');
+    setLoading(true);
+
+    const token = localStorage.getItem('token');
+    const params = {
+      startDate,
+      endDate,
+      shiftType: shiftType === 'all' ? undefined : shiftType,
+    };
+
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/attendance`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+      setRecords(response.data.records);
+      setSummaries(response.data.summaries);
+    } catch (err) {
+      setError(`خطأ أثناء عرض جميع السجلات: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteAll = async () => {
-    if (!window.confirm('هل أنت متأكد من حذف جميع البصمات؟')) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteAll = async () => {
     setError('');
     setLoading(true);
 
@@ -163,6 +165,7 @@ const handleSearch = async () => {
       setError(`خطأ أثناء الحذف: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -321,46 +324,77 @@ const handleSearch = async () => {
     }
   };
 
+  const formatNumber = (value) => {
+    return typeof value === 'number' ? value.toFixed(2) : '0.00';
+  };
+
   if (!user || user.role !== 'admin') {
     navigate('/login');
     return null;
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-7xl font-tajawal bg-gray-100 min-h-screen">
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
-          .font-tajawal { font-family: 'Tajawal', sans-serif; }
-          .table-header { background: linear-gradient(to right, #e0f2fe, #bae6fd); }
-          .table-row:hover { background-color: #f0f9ff; }
-          .modal-overlay { background: rgba(0, 0, 0, 0.5); }
-          .modal-content { background: #ffffff; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
-          .row-present { background-color: #ffffff; }
-          .row-present:hover { background-color: #f0f9ff; }
-          .row-absent { background-color: #fef2f2; color: #dc2626; }
-          .row-absent:hover { background-color: #fee2e2; }
-          .row-weekly-off { background-color: #f0fdf4; color: #15803d; }
-          .row-weekly-off:hover { background-color: #dcfce7; }
-        `}
-      </style>
+    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
       <AnimatePresence>
         {loading && <LoadingSpinner />}
         {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white p-6 rounded-xl shadow-lg border border-purple-100 text-right max-w-md w-full font-cairo"
+            >
+              <h3 className="text-xl font-bold text-purple-600 mb-4">
+                تأكيد الحذف
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                هل أنت متأكد من حذف جميع بصمات الحضور؟
+              </p>
+              <div className="flex justify-end gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={confirmDeleteAll}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold"
+                >
+                  حذف
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold"
+                >
+                  إلغاء
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-7xl mx-auto font-cairo"
       >
-        <h2 className="text-2xl font-bold text-blue-700 mb-6 sm:mb-8 text-right">إدارة بصمات الموظفين</h2>
+        <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">
+          إدارة بصمات الموظفين
+        </h2>
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-red-100 text-red-700 p-4 rounded-lg mb-6 text-right text-sm font-medium"
+            className="bg-purple-50 text-gray-600 p-4 rounded-lg mb-6 text-right text-sm font-semibold"
           >
             {error}
           </motion.div>
@@ -372,7 +406,7 @@ const handleSearch = async () => {
                 type="file"
                 accept=".csv,.xlsx"
                 onChange={handleFileChange}
-                className="w-full sm:w-1/2 px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full sm:w-1/2 px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
               />
               <motion.button
@@ -380,15 +414,13 @@ const handleSearch = async () => {
                 disabled={loading}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                  loading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 رفع الملف
               </motion.button>
             </div>
           </form>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div>
               <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                 كود الموظف
@@ -397,7 +429,7 @@ const handleSearch = async () => {
                 type="text"
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
                 placeholder="مثال: 123"
               />
@@ -410,7 +442,7 @@ const handleSearch = async () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
               />
             </div>
@@ -422,7 +454,7 @@ const handleSearch = async () => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
               />
             </div>
@@ -433,7 +465,7 @@ const handleSearch = async () => {
               <select
                 value={shiftType}
                 onChange={(e) => setShiftType(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
               >
                 <option value="all">الكل</option>
@@ -456,7 +488,7 @@ const handleSearch = async () => {
                     setFilterSingleCheckIn(false);
                   }
                 }}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                 disabled={loading}
               />
               إظهار أيام الحضور فقط
@@ -472,7 +504,7 @@ const handleSearch = async () => {
                     setFilterSingleCheckIn(false);
                   }
                 }}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                 disabled={loading}
               />
               إظهار أيام الغياب فقط
@@ -488,7 +520,7 @@ const handleSearch = async () => {
                     setFilterAbsent(false);
                   }
                 }}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                 disabled={loading}
               />
               إظهار البصمة الواحدة فقط
@@ -500,9 +532,7 @@ const handleSearch = async () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               بحث
             </motion.button>
@@ -511,9 +541,7 @@ const handleSearch = async () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               عرض الكل
             </motion.button>
@@ -522,9 +550,7 @@ const handleSearch = async () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               إجازة رسمية
             </motion.button>
@@ -533,9 +559,7 @@ const handleSearch = async () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               إجازة سنوية
             </motion.button>
@@ -544,9 +568,7 @@ const handleSearch = async () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-medium shadow-md flex items-center justify-center ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`w-full sm:w-auto bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-md flex items-center justify-center ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               حذف جميع البصمات
@@ -557,10 +579,10 @@ const handleSearch = async () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-blue-50 p-4 sm:p-6 rounded-xl shadow-sm mb-8"
+              className="bg-purple-50 p-6 rounded-xl shadow-lg border border-blue-100 mb-8"
             >
-              <h3 className="text-lg font-bold text-blue-700 mb-4 text-right">تحديد إجازة رسمية</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <h3 className="text-xl font-bold text-blue-400 mb-4 text-right">تحديد إجازة رسمية</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                     كود الموظف
@@ -570,7 +592,7 @@ const handleSearch = async () => {
                     name="employeeCode"
                     value={officialLeaveData.employeeCode}
                     onChange={handleOfficialLeaveChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                     disabled={loading || officialLeaveData.applyToAll}
                     placeholder="مثال: 3343"
                   />
@@ -584,7 +606,7 @@ const handleSearch = async () => {
                     name="startDate"
                     value={officialLeaveData.startDate}
                     onChange={handleOfficialLeaveChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
@@ -597,33 +619,31 @@ const handleSearch = async () => {
                     name="endDate"
                     value={officialLeaveData.endDate}
                     onChange={handleOfficialLeaveChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div className="lg:col-span-3">
                   <label className="flex items-center text-gray-700 text-sm font-semibold text-right">
                     <input
                       type="checkbox"
                       name="applyToAll"
                       checked={officialLeaveData.applyToAll}
                       onChange={handleOfficialLeaveChange}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                      className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                       disabled={loading}
                     />
                     تطبيق للجميع
                   </label>
                 </div>
-                <div className="md:col-span-3 flex justify-end gap-4">
+                <div className="lg:col-span-3 flex justify-end gap-4">
                   <motion.button
                     type="button"
                     onClick={handleOfficialLeaveSubmit}
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                      loading ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     حفظ
                   </motion.button>
@@ -633,9 +653,7 @@ const handleSearch = async () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-md ${
-                      loading ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     إلغاء
                   </motion.button>
@@ -648,10 +666,10 @@ const handleSearch = async () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-blue-50 p-4 sm:p-6 rounded-xl shadow-sm mb-8"
+              className="bg-purple-50 p-6 rounded-xl shadow-lg border border-blue-100 mb-8"
             >
-              <h3 className="text-lg font-bold text-blue-700 mb-4 text-right">تحديد إجازة سنوية</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <h3 className="text-xl font-bold text-blue-400 mb-4 text-right">تحديد إجازة سنوية</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                     كود الموظف
@@ -661,7 +679,7 @@ const handleSearch = async () => {
                     name="employeeCode"
                     value={annualLeaveData.employeeCode}
                     onChange={handleAnnualLeaveChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                     disabled={loading || annualLeaveData.applyToAll}
                     placeholder="مثال: 3343"
                   />
@@ -675,7 +693,7 @@ const handleSearch = async () => {
                     name="startDate"
                     value={annualLeaveData.startDate}
                     onChange={handleAnnualLeaveChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
@@ -688,18 +706,18 @@ const handleSearch = async () => {
                     name="endDate"
                     value={annualLeaveData.endDate}
                     onChange={handleAnnualLeaveChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
-                <div className="md:col-span-3 space-y-2">
+                <div className="lg:col-span-3 space-y-2">
                   <label className="flex items-center text-gray-700 text-sm font-semibold text-right">
                     <input
                       type="checkbox"
                       name="applyToAll"
                       checked={annualLeaveData.applyToAll}
                       onChange={handleAnnualLeaveChange}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                      className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                       disabled={loading}
                     />
                     تطبيق للجميع
@@ -710,22 +728,20 @@ const handleSearch = async () => {
                       name="isMedicalLeave"
                       checked={annualLeaveData.isMedicalLeave}
                       onChange={handleAnnualLeaveChange}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                      className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                       disabled={loading}
                     />
                     إجازة مرضية
                   </label>
                 </div>
-                <div className="md:col-span-3 flex justify-end gap-4">
+                <div className="lg:col-span-3 flex justify-end gap-4">
                   <motion.button
                     type="button"
                     onClick={handleAnnualLeaveSubmit}
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                      loading ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     حفظ
                   </motion.button>
@@ -735,9 +751,7 @@ const handleSearch = async () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-md ${
-                      loading ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     إلغاء
                   </motion.button>
@@ -750,16 +764,16 @@ const handleSearch = async () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 modal-overlay flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
             >
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="modal-content p-6 sm:p-8 w-full max-w-lg"
+                className="bg-white p-8 rounded-xl shadow-lg border border-blue-100 w-full max-w-lg font-cairo"
               >
-                <h3 className="text-lg font-bold text-blue-700 mb-4 text-right">تعديل سجل الحضور</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <h3 className="text-xl font-bold text-blue-400 mb-4 text-right">تعديل سجل الحضور</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                       كود الموظف
@@ -767,7 +781,7 @@ const handleSearch = async () => {
                     <input
                       type="text"
                       value={editRecord.employeeCode}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm bg-gray-100 cursor-not-allowed"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm bg-purple-50 cursor-not-allowed"
                       readOnly
                     />
                   </div>
@@ -778,7 +792,7 @@ const handleSearch = async () => {
                     <input
                       type="date"
                       value={editRecord.date}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm bg-gray-100 cursor-not-allowed"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm bg-purple-50 cursor-not-allowed"
                       readOnly
                     />
                   </div>
@@ -791,7 +805,7 @@ const handleSearch = async () => {
                       value={editRecord.checkIn}
                       onChange={handleEditChange}
                       name="checkIn"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading || editRecord.isAnnualLeave || editRecord.isLeaveCompensation || editRecord.isMedicalLeave}
                       placeholder="HH:mm"
                     />
@@ -805,7 +819,7 @@ const handleSearch = async () => {
                       value={editRecord.checkOut}
                       onChange={handleEditChange}
                       name="checkOut"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading || editRecord.isAnnualLeave || editRecord.isLeaveCompensation || editRecord.isMedicalLeave}
                       placeholder="HH:mm"
                     />
@@ -818,7 +832,7 @@ const handleSearch = async () => {
                       value={editRecord.status}
                       onChange={handleEditChange}
                       name="status"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading}
                     >
                       <option value="present">حضور</option>
@@ -836,7 +850,7 @@ const handleSearch = async () => {
                         name="isAnnualLeave"
                         checked={editRecord.isAnnualLeave}
                         onChange={handleEditChange}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                        className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                         disabled={loading}
                       />
                       إجازة سنوية
@@ -847,7 +861,7 @@ const handleSearch = async () => {
                         name="isLeaveCompensation"
                         checked={editRecord.isLeaveCompensation}
                         onChange={handleEditChange}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                        className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                         disabled={loading}
                       />
                       بدل إجازة
@@ -858,7 +872,7 @@ const handleSearch = async () => {
                         name="isMedicalLeave"
                         checked={editRecord.isMedicalLeave}
                         onChange={handleEditChange}
-                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-400 border-gray-300 rounded"
+                        className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
                         disabled={loading}
                       />
                       إجازة مرضية
@@ -871,9 +885,7 @@ const handleSearch = async () => {
                       disabled={loading}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
-                        loading ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       حفظ
                     </motion.button>
@@ -883,9 +895,7 @@ const handleSearch = async () => {
                       disabled={loading}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-md ${
-                        loading ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       إلغاء
                     </motion.button>
@@ -899,81 +909,97 @@ const handleSearch = async () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-200"
+              className="overflow-x-auto rounded-lg border border-blue-100 bg-white"
             >
-              <table className="w-full table-auto border-collapse text-right text-sm">
+              <table className="w-full text-right text-sm">
                 <thead>
-                  <tr className="table-header">
-                    <th className="px-4 py-3 font-semibold text-blue-700">كود الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">اسم الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">التاريخ</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">الانصراف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">نوع الدوام</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام العمل</th>
-                    {records.some((record) => record.shiftType !== 'administrative') && (
+                  <tr className="bg-purple-100">
+                    <th className="px-4 py-3 font-semibold text-blue-400">كود الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">اسم الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">التاريخ</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">الانصراف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">نوع الدوام</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام العمل</th>
+                    {records.some((record) => ['dayStation', 'nightStation'].includes(record.shiftType)) && (
                       <>
-                        <th className="px-4 py-3 font-semibold text-blue-700">دقائق التأخير</th>
-                        <th className="px-4 py-3 font-semibold text-blue-700">بدل التأخير</th>
+                        <th className="px-4 py-3 font-semibold text-blue-400">دقائق التأخير</th>
+                        <th className="px-4 py-3 font-semibold text-blue-400">بدل التأخير</th>
+                        <th className="px-4 py-3 font-semibold text-blue-400">خصم الساعات</th>
                       </>
                     )}
-                    <th className="px-4 py-3 font-semibold text-blue-700">الأيام المخصومة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">رصيد الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">حالة الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">بدل الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">خصم إجازة مرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">ساعات العمل</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">الإجراءات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">الأيام المخصومة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">رصيد الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">حالة الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">بدل الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">خصم إجازة مرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">ساعات العمل</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {records.map((record) => {
-                    const isFriday = new Date(record.date).getDay() === 5;
-                    const workHours = (record.shiftType === 'dayStation' || record.shiftType === 'nightStation')
-                      ? (record.workHours ? record.workHours.toFixed(2) : 0)
+                    const workHours = ['dayStation', 'nightStation'].includes(record.shiftType)
+                      ? formatNumber(record.workHours)
                       : '-';
-                    const rowClass = record.status === 'absent' ? 'row-absent' :
-                                     record.status === 'weekly_off' ? 'row-weekly-off' :
-                                     'row-present';
+                    const rowClass =
+                      record.status === 'absent'
+                        ? 'bg-purple-50 text-gray-600 hover:bg-purple-100'
+                        : record.status === 'weekly_off'
+                        ? 'bg-green-50 text-green-600 hover:bg-green-100'
+                        : 'bg-white hover:bg-blue-50';
                     return (
-                      <tr key={record._id || Math.random()} className={`table-row border-b border-gray-200 ${rowClass}`}>
+                      <tr key={record._id || Math.random()} className={`border-b border-blue-100 ${rowClass}`}>
                         <td className="px-4 py-3">{record.employeeCode}</td>
                         <td className="px-4 py-3">{record.employeeName}</td>
                         <td className="px-4 py-3">{new Date(record.date).toLocaleDateString('ar-EG')}</td>
                         <td className="px-4 py-3">{record.checkIn || '-'}</td>
                         <td className="px-4 py-3">{record.checkOut || '-'}</td>
                         <td className="px-4 py-3">
-                          {record.shiftType === 'administrative' ? 'إداري' :
-                           record.shiftType === 'dayStation' ? 'محطة نهار' :
-                           record.shiftType === 'nightStation' ? 'محطة ليل' :
-                           record.shiftType === '24/24' ? '24/24' : '-'}
+                          {record.shiftType === 'administrative'
+                            ? 'إداري'
+                            : record.shiftType === 'dayStation'
+                            ? 'محطة نهار'
+                            : record.shiftType === 'nightStation'
+                            ? 'محطة ليل'
+                            : record.shiftType === '24/24'
+                            ? '24/24'
+                            : '-'}
                         </td>
                         <td className="px-4 py-3">{record.workingDays === '5' ? '5 أيام' : '6 أيام'}</td>
-                        {record.shiftType !== 'administrative' && (
+                        {['dayStation', 'nightStation'].includes(record.shiftType) && (
                           <>
-                            <td className="px-4 py-3">{record.lateMinutes || 0}</td>
-                            <td className="px-4 py-3">{record.monthlyLateAllowance || 0}</td>
+                            <td className="px-4 py-3">{formatNumber(record.lateMinutes)}</td>
+                            <td className="px-4 py-3">{formatNumber(record.monthlyLateAllowance)}</td>
+                            <td className="px-4 py-3">{formatNumber(record.hoursDeduction)}</td>
                           </>
                         )}
-                        <td className="px-4 py-3">{record.deductedDays || 0}</td>
-                        <td className="px-4 py-3">{record.annualLeaveBalance || 0}</td>
+                        <td className="px-4 py-3">{formatNumber(record.deductedDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(record.annualLeaveBalance)}</td>
                         <td className="px-4 py-3">
-                          {record.status === 'present' ? 'حضور' :
-                           record.status === 'absent' ? 'غياب' :
-                           record.status === 'weekly_off' ? 'إجازة أسبوعية' :
-                           record.status === 'leave' ? 'إجازة' :
-                           record.status === 'official_leave' ? 'إجازة رسمية' :
-                           record.status === 'medical_leave' ? 'إجازة مرضية' : '-'}
+                          {record.status === 'present'
+                            ? 'حضور'
+                            : record.status === 'absent'
+                            ? 'غياب'
+                            : record.status === 'weekly_off'
+                            ? 'إجازة أسبوعية'
+                            : record.status === 'leave'
+                            ? 'إجازة'
+                            : record.status === 'official_leave'
+                            ? 'إجازة رسمية'
+                            : record.status === 'medical_leave'
+                            ? 'إجازة مرضية'
+                            : '-'}
                         </td>
-                        <td className="px-4 py-3">{record.leaveCompensation ? record.leaveCompensation.toFixed(2) : 0}</td>
-                        <td className="px-4 py-3">{record.medicalLeaveDeduction ? record.medicalLeaveDeduction.toFixed(2) : 0}</td>
+                        <td className="px-4 py-3">{formatNumber(record.leaveCompensation)}</td>
+                        <td className="px-4 py-3">{formatNumber(record.medicalLeaveDeduction)}</td>
                         <td className="px-4 py-3">{workHours}</td>
                         <td className="px-4 py-3">
                           <motion.button
                             onClick={() => handleEdit(record)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="text-blue-600 hover:text-blue-800"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-blue-400 text-white px-3 py-2 rounded-lg hover:bg-blue-500 transition-all duration-200"
                           >
                             <Edit className="h-4 w-4" />
                           </motion.button>
@@ -990,31 +1016,32 @@ const handleSearch = async () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="mt-8 overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-200"
+              className="mt-8 overflow-x-auto rounded-lg border border-blue-100 bg-white"
             >
-              <h3 className="text-lg font-bold text-blue-700 mb-4 text-right px-4 pt-4">ملخص الحضور</h3>
-              <table className="w-full table-auto border-collapse text-right text-sm">
+              <h3 className="text-xl font-bold text-blue-400 mb-4 text-right px-4 pt-4">ملخص الحضور</h3>
+              <table className="w-full text-right text-sm">
                 <thead>
-                  <tr className="table-header">
-                    <th className="px-4 py-3 font-semibold text-blue-700">كود الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">اسم الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الغياب</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة الأسبوعية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة الرسمية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي الأيام المخصومة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي بدل الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي خصم الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي أيام العمل المحسوبة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي الساعات الإضافية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي تعويض الساعات الإضافية</th>
+                  <tr className="bg-purple-100">
+                    <th className="px-4 py-3 font-semibold text-blue-400">كود الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">اسم الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الغياب</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة الأسبوعية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة الرسمية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي الأيام المخصومة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي بدل الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الساعات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي أيام العمل المحسوبة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي الساعات الإضافية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي تعويض الساعات الإضافية</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(summaries).map(([employeeCode, summary]) => (
-                    <tr key={employeeCode} className="table-row border-b border-gray-200">
+                    <tr key={employeeCode} className="border-b border-blue-100 hover:bg-blue-50">
                       <td className="px-4 py-3">{employeeCode}</td>
                       <td className="px-4 py-3">{summary.employeeName}</td>
                       <td className="px-4 py-3">{summary.presentDays || 0}</td>
@@ -1024,18 +1051,19 @@ const handleSearch = async () => {
                       <td className="px-4 py-3">{summary.officialLeaveDays || 0}</td>
                       <td className="px-4 py-3">{summary.medicalLeaveDays || 0}</td>
                       <td className="px-4 py-3">{summary.totalDeductedDays || 0}</td>
-                      <td className="px-4 py-3">{summary.totalLeaveCompensation ? summary.totalLeaveCompensation.toFixed(2) : 0}</td>
-                      <td className="px-4 py-3">{summary.totalMedicalLeaveDeduction ? summary.totalMedicalLeaveDeduction.toFixed(2) : 0}</td>
+                      <td className="px-4 py-3">{summary.totalLeaveCompensation ? formatNumber(summary.totalLeaveCompensation) : 0}</td>
+                      <td className="px-4 py-3">{summary.totalMedicalLeaveDeduction ? formatNumber(summary.totalMedicalLeaveDeduction) : 0}</td>
+                      <td className="px-4 py-3">{summary.totalHoursDeduction ? formatNumber(summary.totalHoursDeduction) : 0}</td>
                       <td className="px-4 py-3">{summary.totalWorkDays || 0}</td>
-                      <td className="px-4 py-3">{summary.totalExtraHours ? summary.totalExtraHours.toFixed(2) : 0}</td>
-                      <td className="px-4 py-3">{summary.totalExtraHoursCompensation ? summary.totalExtraHoursCompensation.toFixed(2) : 0}</td>
+                      <td className="px-4 py-3">{summary.totalExtraHours ? formatNumber(summary.totalExtraHours) : 0}</td>
+                      <td className="px-4 py-3">{summary.totalExtraHoursCompensation ? formatNumber(summary.totalExtraHoursCompensation) : 0}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {Object.entries(summaries).map(([employeeCode, summary]) => (
                 summary.warning && (
-                  <p key={employeeCode} className="text-red-600 text-sm font-semibold mt-2 text-right px-4 pb-4">{summary.warning}</p>
+                  <p key={employeeCode} className="text-gray-600 text-sm font-semibold mt-2 text-right px-4 pb-4">{summary.warning}</p>
                 )
               ))}
             </motion.div>

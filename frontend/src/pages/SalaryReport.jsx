@@ -36,7 +36,6 @@ const SalaryReport = () => {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
-      console.log('Salary report response:', response.data.summaries);
       setSummaries(response.data.summaries);
       if (Object.keys(response.data.summaries).length === 0) {
         setError('لا توجد سجلات مطابقة لمعايير البحث.');
@@ -60,7 +59,6 @@ const SalaryReport = () => {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
-      console.log('All salary reports response:', response.data.summaries);
       setSummaries(response.data.summaries);
     } catch (err) {
       setError(`خطأ أثناء عرض جميع السجلات: ${err.response?.data?.message || err.message}`);
@@ -132,17 +130,8 @@ const SalaryReport = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-7xl font-amiri bg-gray-100 min-h-screen">
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
-          .font-amiri { font-family: 'Amiri', serif; }
-          .table-header { background: linear-gradient(to right, #e0f2fe, #bae6fd); }
-          .table-row:hover { background-color: #f0f9ff; }
-          .modal-overlay { background: rgba(0, 0, 0, 0.5); }
-          .modal-content { background: #ffffff; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
-        `}
-      </style>
+    <div className="min-h-screen bg-gradient-to-b from-white to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
       <AnimatePresence>
         {loading && <LoadingSpinner />}
         {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
@@ -151,21 +140,21 @@ const SalaryReport = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-7xl mx-auto font-cairo"
       >
-        <h2 className="text-2xl font-bold text-blue-700 mb-6 sm:mb-8 text-right">تقرير الراتب</h2>
+        <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">تقرير الراتب</h2>
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-red-100 text-red-700 p-4 rounded-lg mb-6 text-right text-sm font-medium"
+            className="bg-purple-50 text-gray-600 p-4 rounded-lg mb-6 text-right text-sm font-semibold"
           >
             {error}
           </motion.div>
         )}
         <div className="space-y-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
             <div>
               <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                 كود الموظف
@@ -174,7 +163,7 @@ const SalaryReport = () => {
                 type="text"
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
                 placeholder="مثال: 123"
               />
@@ -187,7 +176,7 @@ const SalaryReport = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
               />
             </div>
@@ -199,7 +188,7 @@ const SalaryReport = () => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                 disabled={loading}
               />
             </div>
@@ -210,7 +199,7 @@ const SalaryReport = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${
                 loading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -221,7 +210,7 @@ const SalaryReport = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
+              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${
                 loading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -233,46 +222,55 @@ const SalaryReport = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-200"
+              className="overflow-x-auto bg-white rounded-xl shadow-lg border border-blue-100"
             >
-              <h3 className="text-lg font-bold text-blue-700 mb-4 text-right px-4 pt-4">ملخص تقرير الراتب</h3>
+              <h3 className="text-lg font-bold text-blue-400 mb-4 text-right px-4 pt-4">ملخص تقرير الراتب</h3>
               <table className="w-full table-auto border-collapse text-right text-sm">
                 <thead>
-                  <tr className="table-header">
-                    <th className="px-4 py-3 font-semibold text-blue-700">كود الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">اسم الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">الراتب الأساسي</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام العمل الأسبوعية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">بدل الوجبة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">نوع الشيفت</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">التأمين الطبي</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">التأمين الاجتماعي</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الغياب</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة الأسبوعية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة الرسمية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">أيام الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي الخصومات</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي بدل الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي خصم الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي أيام العمل</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي ساعات العمل</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي تعويض الساعات الإضافية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي بدل الجمعة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي خصم الغياب</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي خصم بدل الوجبة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي المخالفات</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">خصم المخالفات</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">إجمالي السلف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">استقطاع السلف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">صافي الراتب</th>
-                    <th className="px-4 py-3 font-semibold text-blue-700">الإجراءات</th>
+                  <tr className="bg-gradient-to-r from-blue-100 to-purple-100">
+                    <th className="px-4 py-3 font-semibold text-blue-400">كود الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">اسم الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">الراتب الأساسي</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام العمل الأسبوعية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">بدل الوجبة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">نوع الشيفت</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">التأمين الطبي</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">التأمين الاجتماعي</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الغياب</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة الأسبوعية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة الرسمية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي الخصومات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي بدل الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي أيام العمل</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي ساعات العمل</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي تعويض الساعات الإضافية</th>
+                    {Object.values(summaries).some(summary => !['dayStation', 'nightStation'].includes(summary.shiftType)) && (
+                      <th className="px-4 py-3 font-semibold text-blue-400">إجمالي بدل الجمعة</th>
+                    )}
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الساعات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الغياب</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم بدل الوجبة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي المخالفات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">خصم المخالفات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي السلف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">استقطاع السلف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">صافي الراتب</th>
+                    <th className="px-4 py-3 font-semibold text-blue-400">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(summaries).map(([userId, summary]) => (
-                    <tr key={userId} className="table-row border-b border-gray-200">
+                  {Object.entries(summaries).map(([userId, summary], index) => (
+                    <motion.tr
+                      key={userId}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1, duration: 0.3 }}
+                      className="border-b border-blue-100 hover:bg-blue-50"
+                    >
                       <td className="px-4 py-3">{summary.employeeCode}</td>
                       <td className="px-4 py-3">{summary.employeeName}</td>
                       <td className="px-4 py-3">{formatNumber(summary.baseSalary)}</td>
@@ -293,7 +291,10 @@ const SalaryReport = () => {
                       <td className="px-4 py-3">{summary.totalWorkDays}</td>
                       <td className="px-4 py-3">{formatNumber(summary.totalWorkHours)}</td>
                       <td className="px-4 py-3">{formatNumber(summary.totalExtraHoursCompensation)}</td>
-                      <td className="px-4 py-3">{formatNumber(summary.totalFridayBonus)}</td>
+                      {!['dayStation', 'nightStation'].includes(summary.shiftType) && (
+                        <td className="px-4 py-3">{formatNumber(summary.totalFridayBonus)}</td>
+                      )}
+                      <td className="px-4 py-3">{formatNumber(summary.totalHoursDeduction)}</td>
                       <td className="px-4 py-3">{formatNumber(summary.totalAbsentDeduction)}</td>
                       <td className="px-4 py-3">{formatNumber(summary.totalMealAllowanceDeduction)}</td>
                       <td className="px-4 py-3">{formatNumber(summary.violationsTotal)}</td>
@@ -306,12 +307,12 @@ const SalaryReport = () => {
                           onClick={() => handleEditFinance(summary)}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-purple-600 hover:text-purple-700"
                         >
                           <Edit className="h-4 w-4" />
                         </motion.button>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -322,15 +323,15 @@ const SalaryReport = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 modal-overlay flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
             >
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="modal-content p-6 sm:p-8 w-full max-w-lg"
+                className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 w-full max-w-lg font-cairo"
               >
-                <h3 className="text-lg font-bold text-blue-700 mb-4 text-right">تعديل البيانات المالية</h3>
+                <h3 className="text-lg font-bold text-blue-400 mb-4 text-right">تعديل البيانات المالية</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
@@ -339,7 +340,7 @@ const SalaryReport = () => {
                     <input
                       type="text"
                       value={editFinance.employeeCode}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm bg-gray-100 cursor-not-allowed"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm bg-purple-50 cursor-not-allowed"
                       readOnly
                     />
                   </div>
@@ -352,7 +353,7 @@ const SalaryReport = () => {
                       name="violationsTotal"
                       value={editFinance.violationsTotal}
                       onChange={handleEditFinanceChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading}
                     />
                   </div>
@@ -365,7 +366,7 @@ const SalaryReport = () => {
                       name="violationsDeduction"
                       value={editFinance.violationsDeduction}
                       onChange={handleEditFinanceChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading}
                     />
                   </div>
@@ -378,7 +379,7 @@ const SalaryReport = () => {
                       name="advancesTotal"
                       value={editFinance.advancesTotal}
                       onChange={handleEditFinanceChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading}
                     />
                   </div>
@@ -391,7 +392,7 @@ const SalaryReport = () => {
                       name="advancesDeduction"
                       value={editFinance.advancesDeduction}
                       onChange={handleEditFinanceChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
                       disabled={loading}
                     />
                   </div>
@@ -402,7 +403,7 @@ const SalaryReport = () => {
                       disabled={loading}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-md ${
+                      className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${
                         loading ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
@@ -414,7 +415,7 @@ const SalaryReport = () => {
                       disabled={loading}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-medium shadow-md ${
+                      className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${
                         loading ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
