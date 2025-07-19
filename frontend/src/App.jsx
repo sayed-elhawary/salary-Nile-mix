@@ -4,7 +4,9 @@ import axios from 'axios';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CreateUser from './pages/CreateUser';
+import EditUser from './pages/EditUser';
 import UploadAttendance from './pages/UploadAttendance';
+import SalaryReport from './pages/SalaryReport'; // إضافة صفحة تقرير الراتب
 import NavBar from './components/NavBar';
 import { AuthContext } from './components/AuthProvider';
 
@@ -16,9 +18,10 @@ const App = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      axios.get(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      axios
+        .get(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         .then((res) => {
           setUser(res.data.user);
           setLoading(false);
@@ -57,7 +60,9 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/create-user" element={<CreateUser />} />
+          <Route path="/edit-user" element={<EditUser />} />
           <Route path="/upload-attendance" element={<UploadAttendance />} />
+          <Route path="/salary-report" element={<SalaryReport />} /> {/* إضافة مسار تقرير الراتب */}
           <Route path="*" element={<Login />} />
         </Routes>
       </div>

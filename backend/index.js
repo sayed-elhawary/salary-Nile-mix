@@ -15,7 +15,7 @@ const app = express();
 app.use(cors({
   origin: 'http://13.61.194.170:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
@@ -29,8 +29,8 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000, // تحديد وقت محاولة الاتصال
-  socketTimeoutMS: 45000, // تحديد وقت انتهاء الاتصال
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
 })
   .then(() => console.log('MongoDB connected successfully'))
   .catch((err) => console.error('MongoDB connection error:', err));
@@ -42,6 +42,7 @@ app.use('/api/attendance', attendanceRoutes);
 
 // معالجة الأخطاء العامة (404)
 app.use((req, res, next) => {
+  console.log('404 Error: Path not found:', req.originalUrl);
   res.status(404).json({ message: 'المسار غير موجود' });
 });
 

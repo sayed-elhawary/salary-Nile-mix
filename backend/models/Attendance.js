@@ -16,8 +16,8 @@ const attendanceSchema = new mongoose.Schema({
   leaveCompensation: { type: Number, default: 0 },
   medicalLeaveDeduction: { type: Number, default: 0 },
   extraHoursCompensation: { type: Number, default: 0 },
-  workHours: { type: Number, default: 0 }, // New field for work hours
-  fridayBonus: { type: Number, default: 0 }, // New field for Friday bonus
+  workHours: { type: Number, default: 0 },
+  fridayBonus: { type: Number, default: 0 },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 });
 

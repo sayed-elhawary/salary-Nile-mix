@@ -14,46 +14,64 @@ const NavBar = () => {
 
   const menuVariants = {
     hidden: { opacity: 0, y: -20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
-      transition: { 
-        type: 'spring', 
-        stiffness: 100, 
+      transition: {
+        type: 'spring',
+        stiffness: 100,
         damping: 20,
         when: 'beforeChildren',
-        staggerChildren: 0.1 
-      }
+        staggerChildren: 0.1,
+      },
     },
-    exit: { 
-      opacity: 0, 
+    exit: {
+      opacity: 0,
       y: -20,
-      transition: { duration: 0.2 }
-    }
+      transition: { duration: 0.2 },
+    },
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: 10 }
+    exit: { opacity: 0, y: 10 },
   };
 
   return (
     <nav className="bg-white p-4 shadow-sm">
       <div className="container mx-auto flex justify-between items-center">
-        {/* Logo or Brand */}
         <div className="text-blue-600 text-lg font-bold">إدارة الموظفين</div>
-
-        {/* Desktop Menu */}
         <div className="hidden md:flex gap-6 items-center">
-          <Link to="/dashboard" className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200">
+          <Link
+            to="/dashboard"
+            className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+          >
             الرئيسية
           </Link>
-          <Link to="/create-user" className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200">
+          <Link
+            to="/create-user"
+            className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+          >
             إنشاء حساب جديد
           </Link>
-          <Link to="/upload-attendance" className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200">
+          <Link
+            to="/edit-user"
+            className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+          >
+            تعديل حساب
+          </Link>
+          <Link
+            to="/upload-attendance"
+            className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+          >
             رفع البصمات
+          </Link>
+          <Link
+            to="/salary-report"
+            className="text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+          >
+            تقرير الراتب
           </Link>
           <motion.button
             onClick={logout}
@@ -65,8 +83,6 @@ const NavBar = () => {
             تسجيل الخروج
           </motion.button>
         </div>
-
-        {/* Mobile Menu Button */}
         <button
           className="md:hidden text-blue-600 focus:outline-none"
           onClick={toggleMenu}
@@ -74,8 +90,6 @@ const NavBar = () => {
           {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
-
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -105,11 +119,29 @@ const NavBar = () => {
             </motion.div>
             <motion.div variants={itemVariants} className="px-4 py-2">
               <Link
+                to="/edit-user"
+                className="block text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+                onClick={toggleMenu}
+              >
+                تعديل حساب
+              </Link>
+            </motion.div>
+            <motion.div variants={itemVariants} className="px-4 py-2">
+              <Link
                 to="/upload-attendance"
                 className="block text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
                 onClick={toggleMenu}
               >
                 رفع البصمات
+              </Link>
+            </motion.div>
+            <motion.div variants={itemVariants} className="px-4 py-2">
+              <Link
+                to="/salary-report"
+                className="block text-blue-600 font-medium text-sm hover:bg-blue-100 px-3 py-2 rounded-md transition-all duration-200"
+                onClick={toggleMenu}
+              >
+                تقرير الراتب
               </Link>
             </motion.div>
             <motion.div variants={itemVariants} className="px-4 py-2">
