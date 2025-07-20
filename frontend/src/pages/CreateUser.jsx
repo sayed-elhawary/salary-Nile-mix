@@ -19,7 +19,7 @@ const CreateUser = () => {
     bonusPercentage: '0.00',
     medicalInsurance: '0.00',
     socialInsurance: '0.00',
-    mealAllowance: '0.00',
+    mealAllowance: '500.00',
     workingDays: '5',
     shiftType: 'administrative',
     annualLeaveBalance: '21',
@@ -33,7 +33,8 @@ const CreateUser = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => {
-      const updatedForm = { ...prev, [name]: value };
+      const cleanedValue = name === 'password' ? value.trim().replace(/[^\w\s@#$%^&*()]/g, '') : value;
+      const updatedForm = { ...prev, [name]: cleanedValue };
       const baseSalary = parseFloat(updatedForm.baseSalary || 0);
       const baseBonus = parseFloat(updatedForm.baseBonus || 0);
       const bonusPercentage = parseFloat(updatedForm.bonusPercentage || 0);
@@ -56,8 +57,16 @@ const CreateUser = () => {
     setError('');
     setLoading(true);
 
-    if (form.password.length < 6) {
+    const trimmedPassword = form.password.trim();
+    if (trimmedPassword.length < 6) {
       setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setLoading(false);
+      return;
+    }
+
+    // تحقق إضافي للتأكد من أن كلمة المرور تحتوي فقط على أحرف صالحة
+    if (!/^[a-zA-Z0-9@#$%^&*()]+$/.test(trimmedPassword)) {
+      setError('كلمة المرور تحتوي على أحرف غير صالحة');
       setLoading(false);
       return;
     }
@@ -73,6 +82,7 @@ const CreateUser = () => {
         `${process.env.REACT_APP_API_URL}/api/users`,
         {
           ...form,
+          password: trimmedPassword,
           baseSalary: parseFloat(form.baseSalary),
           baseBonus: parseFloat(form.baseBonus),
           bonusPercentage: parseFloat(form.bonusPercentage),
@@ -106,8 +116,7 @@ const CreateUser = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
-      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+    <div className="min-h-screen bg-gradient-to-b from-white to-purple-50 py-8 px-4 sm:px-6 lg:px-8 font-noto-sans-arabic">
       <AnimatePresence>
         {loading && <LoadingSpinner />}
         {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
@@ -116,7 +125,7 @@ const CreateUser = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-4xl mx-auto font-cairo"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-4xl mx-auto"
       >
         <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">
           إنشاء حساب جديد
@@ -144,6 +153,7 @@ const CreateUser = () => {
               className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
+              placeholder="أدخل كود الموظف"
             />
           </div>
           <div>
@@ -158,6 +168,7 @@ const CreateUser = () => {
               className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
+              placeholder="أدخل كلمة المرور"
             />
           </div>
           <div>
@@ -172,6 +183,7 @@ const CreateUser = () => {
               className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
+              placeholder="أدخل الاسم الكامل"
             />
           </div>
           <div>
@@ -186,6 +198,7 @@ const CreateUser = () => {
               className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               required
               disabled={loading}
+              placeholder="أدخل القسم"
             />
           </div>
           <div>
@@ -202,6 +215,7 @@ const CreateUser = () => {
               step="0.01"
               required
               disabled={loading}
+              placeholder="أدخل الراتب الأساسي"
             />
           </div>
           <div>
@@ -217,6 +231,7 @@ const CreateUser = () => {
               min="0"
               step="0.01"
               disabled={loading}
+              placeholder="أدخل الحافز الأساسي"
             />
           </div>
           <div>
@@ -233,6 +248,7 @@ const CreateUser = () => {
               max="100"
               step="0.01"
               disabled={loading}
+              placeholder="أدخل نسبة الحافز"
             />
           </div>
           <div>
@@ -248,6 +264,7 @@ const CreateUser = () => {
               min="0"
               step="0.01"
               disabled={loading}
+              placeholder="أدخل التأمين الطبي"
             />
           </div>
           <div>
@@ -263,6 +280,7 @@ const CreateUser = () => {
               min="0"
               step="0.01"
               disabled={loading}
+              placeholder="أدخل التأمين الاجتماعي"
             />
           </div>
           <div>
@@ -278,6 +296,7 @@ const CreateUser = () => {
               min="0"
               step="0.01"
               disabled={loading}
+              placeholder="أدخل بدل الوجبة"
             />
           </div>
           <div>
@@ -324,6 +343,7 @@ const CreateUser = () => {
               className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               disabled={loading}
+              placeholder="أدخل رصيد الإجازة"
             />
           </div>
           <div>
@@ -338,6 +358,7 @@ const CreateUser = () => {
               className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
               min="0"
               disabled={loading}
+              placeholder="أدخل رصيد دقائق السماح"
             />
           </div>
           <div>

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,7 +8,7 @@ import SuccessCheckmark from '../components/SuccessCheckmark';
 import { Trash2, Edit } from 'lucide-react';
 
 const UploadAttendance = () => {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [employeeCode, setEmployeeCode] = useState('');
@@ -21,6 +21,7 @@ const UploadAttendance = () => {
   const [records, setRecords] = useState([]);
   const [summaries, setSummaries] = useState({});
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
@@ -42,6 +43,13 @@ const UploadAttendance = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // التحقق من صلاحية المستخدم
+  useEffect(() => {
+    if (!user || user.role !== 'admin') {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
@@ -59,7 +67,7 @@ const UploadAttendance = () => {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file) {
-      setError('يرجى اختيار ملف');
+      setError('يرجى اختيار ملف للرفع');
       return;
     }
     setError('');
@@ -70,16 +78,29 @@ const UploadAttendance = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/attendance/upload`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/attendance/upload`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      setSuccessMessage('تم رفع الملف بنجاح');
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
+        setSuccessMessage('');
         setFile(null);
         handleSearch();
       }, 2000);
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء رفع الملف: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -92,7 +113,7 @@ const UploadAttendance = () => {
 
     const token = localStorage.getItem('token');
     const params = {
-      employeeCode,
+      employeeCode: employeeCode.trim(),
       startDate,
       endDate,
       filterPresent,
@@ -106,12 +127,16 @@ const UploadAttendance = () => {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
-      setRecords(response.data.records);
-      setSummaries(response.data.summaries);
+      setRecords(response.data.records || []);
+      setSummaries(response.data.summaries || {});
       if (response.data.records.length === 0) {
         setError('لا توجد سجلات مطابقة لمعايير البحث.');
       }
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء البحث: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -134,9 +159,16 @@ const UploadAttendance = () => {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
-      setRecords(response.data.records);
-      setSummaries(response.data.summaries);
+      setRecords(response.data.records || []);
+      setSummaries(response.data.summaries || {});
+      if (response.data.records.length === 0) {
+        setError('لا توجد سجلات متاحة.');
+      }
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء عرض جميع السجلات: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -159,9 +191,14 @@ const UploadAttendance = () => {
       });
       setRecords([]);
       setSummaries({});
+      setSuccessMessage('تم حذف جميع البصمات بنجاح');
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء الحذف: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -244,14 +281,20 @@ const UploadAttendance = () => {
       await axios.put(`${process.env.REACT_APP_API_URL}/api/attendance/${editRecord.id}`, editRecord, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      setSuccessMessage('تم تعديل السجل بنجاح');
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
+        setSuccessMessage('');
         setEditRecord(null);
         setShowEditModal(false);
         handleSearch();
       }, 2000);
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء التعديل: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -274,17 +317,27 @@ const UploadAttendance = () => {
     const token = localStorage.getItem('token');
 
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/attendance/official_leave`, officialLeaveData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/attendance/official_leave`,
+        { ...officialLeaveData, employeeCode: officialLeaveData.employeeCode.trim() },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setSuccessMessage('تم تحديد الإجازة الرسمية بنجاح');
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
+        setSuccessMessage('');
         setShowOfficialLeaveForm(false);
         setOfficialLeaveData({ employeeCode: '', startDate: '', endDate: '', applyToAll: false });
         handleSearch();
       }, 2000);
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء تحديد الإجازة الرسمية: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -307,17 +360,27 @@ const UploadAttendance = () => {
     const token = localStorage.getItem('token');
 
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/attendance/annual_leave`, annualLeaveData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/attendance/annual_leave`,
+        { ...annualLeaveData, employeeCode: annualLeaveData.employeeCode.trim() },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setSuccessMessage('تم تحديد الإجازة السنوية بنجاح');
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
+        setSuccessMessage('');
         setShowAnnualLeaveForm(false);
         setAnnualLeaveData({ employeeCode: '', startDate: '', endDate: '', applyToAll: false, isMedicalLeave: false });
         handleSearch();
       }, 2000);
     } catch (err) {
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login');
+      }
       setError(`خطأ أثناء تحديد الإجازة السنوية: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -328,36 +391,36 @@ const UploadAttendance = () => {
     return typeof value === 'number' ? value.toFixed(2) : '0.00';
   };
 
-  if (!user || user.role !== 'admin') {
-    navigate('/login');
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8 font-cairo">
       <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
       <AnimatePresence>
         {loading && <LoadingSpinner />}
-        {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 text-right"
+          >
+            {successMessage}
+          </motion.div>
+        )}
         {showDeleteConfirm && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white p-6 rounded-xl shadow-lg border border-purple-100 text-right max-w-md w-full font-cairo"
+              className="bg-white p-6 rounded-xl shadow-lg border border-purple-200 text-right max-w-md w-full"
             >
-              <h3 className="text-xl font-bold text-purple-600 mb-4">
-                تأكيد الحذف
-              </h3>
-              <p className="text-sm text-gray-600 mb-6">
-                هل أنت متأكد من حذف جميع بصمات الحضور؟
-              </p>
+              <h3 className="text-xl font-bold text-purple-600 mb-4">تأكيد الحذف</h3>
+              <p className="text-sm text-gray-600 mb-6">هل أنت متأكد من حذف جميع بصمات الحضور؟</p>
               <div className="flex justify-end gap-3">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -384,17 +447,15 @@ const UploadAttendance = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-7xl mx-auto font-cairo"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-200 max-w-7xl mx-auto"
       >
-        <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">
-          إدارة بصمات الموظفين
-        </h2>
+        <h2 className="text-3xl font-bold text-blue-600 mb-8 text-right">إدارة بصمات الموظفين</h2>
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-purple-50 text-gray-600 p-4 rounded-lg mb-6 text-right text-sm font-semibold"
+            exit={{ opacity: 0 }}
+            className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 text-right text-sm font-semibold"
           >
             {error}
           </motion.div>
@@ -406,15 +467,17 @@ const UploadAttendance = () => {
                 type="file"
                 accept=".csv,.xlsx"
                 onChange={handleFileChange}
-                className="w-full sm:w-1/2 px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                className="w-full sm:w-1/2 px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                 disabled={loading}
               />
               <motion.button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !file}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                  loading || !file ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 رفع الملف
               </motion.button>
@@ -422,50 +485,42 @@ const UploadAttendance = () => {
           </form>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div>
-              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
-                كود الموظف
-              </label>
+              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">كود الموظف</label>
               <input
                 type="text"
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
-                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                 disabled={loading}
                 placeholder="مثال: 123"
               />
             </div>
             <div>
-              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
-                من التاريخ
-              </label>
+              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">من التاريخ</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                 disabled={loading}
               />
             </div>
             <div>
-              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
-                إلى التاريخ
-              </label>
+              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">إلى التاريخ</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                 disabled={loading}
               />
             </div>
             <div>
-              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
-                نوع الدوام
-              </label>
+              <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">نوع الدوام</label>
               <select
                 value={shiftType}
                 onChange={(e) => setShiftType(e.target.value)}
-                className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                 disabled={loading}
               >
                 <option value="all">الكل</option>
@@ -488,7 +543,7 @@ const UploadAttendance = () => {
                     setFilterSingleCheckIn(false);
                   }
                 }}
-                className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                 disabled={loading}
               />
               إظهار أيام الحضور فقط
@@ -504,7 +559,7 @@ const UploadAttendance = () => {
                     setFilterSingleCheckIn(false);
                   }
                 }}
-                className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                 disabled={loading}
               />
               إظهار أيام الغياب فقط
@@ -520,7 +575,7 @@ const UploadAttendance = () => {
                     setFilterAbsent(false);
                   }
                 }}
-                className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                 disabled={loading}
               />
               إظهار البصمة الواحدة فقط
@@ -532,7 +587,9 @@ const UploadAttendance = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               بحث
             </motion.button>
@@ -541,7 +598,9 @@ const UploadAttendance = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               عرض الكل
             </motion.button>
@@ -550,7 +609,9 @@ const UploadAttendance = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               إجازة رسمية
             </motion.button>
@@ -559,7 +620,9 @@ const UploadAttendance = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               إجازة سنوية
             </motion.button>
@@ -568,7 +631,9 @@ const UploadAttendance = () => {
               disabled={loading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full sm:w-auto bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-md flex items-center justify-center ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-semibold shadow-md flex items-center justify-center ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               حذف جميع البصمات
@@ -579,9 +644,9 @@ const UploadAttendance = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-purple-50 p-6 rounded-xl shadow-lg border border-blue-100 mb-8"
+              className="bg-gray-50 p-6 rounded-xl shadow-lg border border-blue-200 mb-8"
             >
-              <h3 className="text-xl font-bold text-blue-400 mb-4 text-right">تحديد إجازة رسمية</h3>
+              <h3 className="text-xl font-bold text-blue-600 mb-4 text-right">تحديد إجازة رسمية</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
@@ -592,7 +657,7 @@ const UploadAttendance = () => {
                     name="employeeCode"
                     value={officialLeaveData.employeeCode}
                     onChange={handleOfficialLeaveChange}
-                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                     disabled={loading || officialLeaveData.applyToAll}
                     placeholder="مثال: 3343"
                   />
@@ -606,7 +671,7 @@ const UploadAttendance = () => {
                     name="startDate"
                     value={officialLeaveData.startDate}
                     onChange={handleOfficialLeaveChange}
-                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
@@ -619,7 +684,7 @@ const UploadAttendance = () => {
                     name="endDate"
                     value={officialLeaveData.endDate}
                     onChange={handleOfficialLeaveChange}
-                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
@@ -630,7 +695,7 @@ const UploadAttendance = () => {
                       name="applyToAll"
                       checked={officialLeaveData.applyToAll}
                       onChange={handleOfficialLeaveChange}
-                      className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                       disabled={loading}
                     />
                     تطبيق للجميع
@@ -643,7 +708,9 @@ const UploadAttendance = () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                      loading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     حفظ
                   </motion.button>
@@ -653,7 +720,9 @@ const UploadAttendance = () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${
+                      loading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     إلغاء
                   </motion.button>
@@ -666,9 +735,9 @@ const UploadAttendance = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-purple-50 p-6 rounded-xl shadow-lg border border-blue-100 mb-8"
+              className="bg-gray-50 p-6 rounded-xl shadow-lg border border-blue-200 mb-8"
             >
-              <h3 className="text-xl font-bold text-blue-400 mb-4 text-right">تحديد إجازة سنوية</h3>
+              <h3 className="text-xl font-bold text-blue-600 mb-4 text-right">تحديد إجازة سنوية</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
@@ -679,7 +748,7 @@ const UploadAttendance = () => {
                     name="employeeCode"
                     value={annualLeaveData.employeeCode}
                     onChange={handleAnnualLeaveChange}
-                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                     disabled={loading || annualLeaveData.applyToAll}
                     placeholder="مثال: 3343"
                   />
@@ -693,7 +762,7 @@ const UploadAttendance = () => {
                     name="startDate"
                     value={annualLeaveData.startDate}
                     onChange={handleAnnualLeaveChange}
-                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
@@ -706,7 +775,7 @@ const UploadAttendance = () => {
                     name="endDate"
                     value={annualLeaveData.endDate}
                     onChange={handleAnnualLeaveChange}
-                    className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                    className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                     disabled={loading}
                   />
                 </div>
@@ -717,7 +786,7 @@ const UploadAttendance = () => {
                       name="applyToAll"
                       checked={annualLeaveData.applyToAll}
                       onChange={handleAnnualLeaveChange}
-                      className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                       disabled={loading}
                     />
                     تطبيق للجميع
@@ -728,7 +797,7 @@ const UploadAttendance = () => {
                       name="isMedicalLeave"
                       checked={annualLeaveData.isMedicalLeave}
                       onChange={handleAnnualLeaveChange}
-                      className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                       disabled={loading}
                     />
                     إجازة مرضية
@@ -741,7 +810,9 @@ const UploadAttendance = () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                      loading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     حفظ
                   </motion.button>
@@ -751,7 +822,9 @@ const UploadAttendance = () => {
                     disabled={loading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${
+                      loading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     إلغاء
                   </motion.button>
@@ -764,15 +837,15 @@ const UploadAttendance = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
             >
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="bg-white p-8 rounded-xl shadow-lg border border-blue-100 w-full max-w-lg font-cairo"
+                className="bg-white p-8 rounded-xl shadow-lg border border-blue-200 w-full max-w-lg"
               >
-                <h3 className="text-xl font-bold text-blue-400 mb-4 text-right">تعديل سجل الحضور</h3>
+                <h3 className="text-xl font-bold text-blue-600 mb-4 text-right">تعديل سجل الحضور</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
@@ -781,7 +854,7 @@ const UploadAttendance = () => {
                     <input
                       type="text"
                       value={editRecord.employeeCode}
-                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm bg-purple-50 cursor-not-allowed"
+                      className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm bg-gray-100 cursor-not-allowed"
                       readOnly
                     />
                   </div>
@@ -792,7 +865,7 @@ const UploadAttendance = () => {
                     <input
                       type="date"
                       value={editRecord.date}
-                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm bg-purple-50 cursor-not-allowed"
+                      className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm bg-gray-100 cursor-not-allowed"
                       readOnly
                     />
                   </div>
@@ -805,7 +878,7 @@ const UploadAttendance = () => {
                       value={editRecord.checkIn}
                       onChange={handleEditChange}
                       name="checkIn"
-                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                       disabled={loading || editRecord.isAnnualLeave || editRecord.isLeaveCompensation || editRecord.isMedicalLeave}
                       placeholder="HH:mm"
                     />
@@ -819,7 +892,7 @@ const UploadAttendance = () => {
                       value={editRecord.checkOut}
                       onChange={handleEditChange}
                       name="checkOut"
-                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                       disabled={loading || editRecord.isAnnualLeave || editRecord.isLeaveCompensation || editRecord.isMedicalLeave}
                       placeholder="HH:mm"
                     />
@@ -832,7 +905,7 @@ const UploadAttendance = () => {
                       value={editRecord.status}
                       onChange={handleEditChange}
                       name="status"
-                      className="w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 hover:bg-blue-50"
+                      className="w-full px-4 py-3 border border-blue-200 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-blue-50"
                       disabled={loading}
                     >
                       <option value="present">حضور</option>
@@ -850,7 +923,7 @@ const UploadAttendance = () => {
                         name="isAnnualLeave"
                         checked={editRecord.isAnnualLeave}
                         onChange={handleEditChange}
-                        className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                         disabled={loading}
                       />
                       إجازة سنوية
@@ -861,7 +934,7 @@ const UploadAttendance = () => {
                         name="isLeaveCompensation"
                         checked={editRecord.isLeaveCompensation}
                         onChange={handleEditChange}
-                        className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                         disabled={loading}
                       />
                       بدل إجازة
@@ -872,7 +945,7 @@ const UploadAttendance = () => {
                         name="isMedicalLeave"
                         checked={editRecord.isMedicalLeave}
                         onChange={handleEditChange}
-                        className="mr-2 h-4 w-4 text-blue-400 focus:ring-blue-400 border-blue-100 rounded"
+                        className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded"
                         disabled={loading}
                       />
                       إجازة مرضية
@@ -885,7 +958,9 @@ const UploadAttendance = () => {
                       disabled={loading}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto bg-blue-400 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-semibold shadow-md ${
+                        loading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
                       حفظ
                     </motion.button>
@@ -895,7 +970,9 @@ const UploadAttendance = () => {
                       disabled={loading}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full sm:w-auto bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm font-semibold shadow-md ${
+                        loading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
                       إلغاء
                     </motion.button>
@@ -909,32 +986,32 @@ const UploadAttendance = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="overflow-x-auto rounded-lg border border-blue-100 bg-white"
+              className="overflow-x-auto rounded-lg border border-blue-200 bg-white"
             >
               <table className="w-full text-right text-sm">
                 <thead>
-                  <tr className="bg-purple-100">
-                    <th className="px-4 py-3 font-semibold text-blue-400">كود الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">اسم الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">التاريخ</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">الانصراف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">نوع الدوام</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام العمل</th>
+                  <tr className="bg-blue-100">
+                    <th className="px-4 py-3 font-semibold text-blue-600">كود الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">اسم الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">التاريخ</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">الانصراف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">نوع الدوام</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام العمل</th>
                     {records.some((record) => ['dayStation', 'nightStation'].includes(record.shiftType)) && (
                       <>
-                        <th className="px-4 py-3 font-semibold text-blue-400">دقائق التأخير</th>
-                        <th className="px-4 py-3 font-semibold text-blue-400">بدل التأخير</th>
-                        <th className="px-4 py-3 font-semibold text-blue-400">خصم الساعات</th>
+                        <th className="px-4 py-3 font-semibold text-blue-600">دقائق التأخير</th>
+                        <th className="px-4 py-3 font-semibold text-blue-600">بدل التأخير</th>
+                        <th className="px-4 py-3 font-semibold text-blue-600">خصم الساعات</th>
                       </>
                     )}
-                    <th className="px-4 py-3 font-semibold text-blue-400">الأيام المخصومة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">رصيد الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">حالة الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">بدل الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">خصم إجازة مرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">ساعات العمل</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">الإجراءات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">الأيام المخصومة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">رصيد الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">حالة الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">بدل الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">خصم إجازة مرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">ساعات العمل</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -944,12 +1021,14 @@ const UploadAttendance = () => {
                       : '-';
                     const rowClass =
                       record.status === 'absent'
-                        ? 'bg-purple-50 text-gray-600 hover:bg-purple-100'
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
                         : record.status === 'weekly_off'
                         ? 'bg-green-50 text-green-600 hover:bg-green-100'
+                        : record.status === 'leave' || record.status === 'official_leave' || record.status === 'medical_leave'
+                        ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
                         : 'bg-white hover:bg-blue-50';
                     return (
-                      <tr key={record._id || Math.random()} className={`border-b border-blue-100 ${rowClass}`}>
+                      <tr key={record._id || Math.random()} className={`border-b border-blue-200 ${rowClass}`}>
                         <td className="px-4 py-3">{record.employeeCode}</td>
                         <td className="px-4 py-3">{record.employeeName}</td>
                         <td className="px-4 py-3">{new Date(record.date).toLocaleDateString('ar-EG')}</td>
@@ -999,7 +1078,7 @@ const UploadAttendance = () => {
                             onClick={() => handleEdit(record)}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="bg-blue-400 text-white px-3 py-2 rounded-lg hover:bg-blue-500 transition-all duration-200"
+                            className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200"
                           >
                             <Edit className="h-4 w-4" />
                           </motion.button>
@@ -1016,32 +1095,32 @@ const UploadAttendance = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="mt-8 overflow-x-auto rounded-lg border border-blue-100 bg-white"
+              className="mt-8 overflow-x-auto rounded-lg border border-blue-200 bg-white"
             >
-              <h3 className="text-xl font-bold text-blue-400 mb-4 text-right px-4 pt-4">ملخص الحضور</h3>
+              <h3 className="text-xl font-bold text-blue-600 mb-4 text-right px-4 pt-4">ملخص الحضور</h3>
               <table className="w-full text-right text-sm">
                 <thead>
-                  <tr className="bg-purple-100">
-                    <th className="px-4 py-3 font-semibold text-blue-400">كود الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">اسم الموظف</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الحضور</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الغياب</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة الأسبوعية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة الرسمية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">أيام الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي الأيام المخصومة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي بدل الإجازة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي خصم الساعات</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي أيام العمل المحسوبة</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي الساعات الإضافية</th>
-                    <th className="px-4 py-3 font-semibold text-blue-400">إجمالي تعويض الساعات الإضافية</th>
+                  <tr className="bg-blue-100">
+                    <th className="px-4 py-3 font-semibold text-blue-600">كود الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">اسم الموظف</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام الحضور</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام الغياب</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام الإجازة الأسبوعية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام الإجازة الرسمية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">أيام الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي الأيام المخصومة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي بدل الإجازة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي خصم الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي خصم الساعات</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي أيام العمل المحسوبة</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي الساعات الإضافية</th>
+                    <th className="px-4 py-3 font-semibold text-blue-600">إجمالي تعويض الساعات الإضافية</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(summaries).map(([employeeCode, summary]) => (
-                    <tr key={employeeCode} className="border-b border-blue-100 hover:bg-blue-50">
+                    <tr key={employeeCode} className="border-b border-blue-200 hover:bg-blue-50">
                       <td className="px-4 py-3">{employeeCode}</td>
                       <td className="px-4 py-3">{summary.employeeName}</td>
                       <td className="px-4 py-3">{summary.presentDays || 0}</td>
@@ -1063,7 +1142,7 @@ const UploadAttendance = () => {
               </table>
               {Object.entries(summaries).map(([employeeCode, summary]) => (
                 summary.warning && (
-                  <p key={employeeCode} className="text-gray-600 text-sm font-semibold mt-2 text-right px-4 pb-4">{summary.warning}</p>
+                  <p key={employeeCode} className="text-red-600 text-sm font-semibold mt-2 text-right px-4 pb-4">{summary.warning}</p>
                 )
               ))}
             </motion.div>

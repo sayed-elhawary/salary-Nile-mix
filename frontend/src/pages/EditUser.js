@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../components/AuthProvider';
-import { Trash2, Edit2, Search, Plus } from 'lucide-react';
+import { Trash2, Edit2, Search, Plus, Eye, EyeOff } from 'lucide-react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import SuccessCheckmark from '../components/SuccessCheckmark';
 
 const EditUser = () => {
   const { user } = useContext(AuthContext);
@@ -12,6 +14,7 @@ const EditUser = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [showPassword, setShowPassword] = useState(false); // إضافة حالة إظهار/إخفاء كلمة المرور
   const [form, setForm] = useState({
     code: '',
     password: '',
@@ -92,21 +95,21 @@ const EditUser = () => {
   const handleEdit = (user) => {
     setSelectedUser(user);
     setForm({
-      code: user.code,
+      code: user.code || '',
       password: '',
-      employeeName: user.employeeName,
-      department: user.department,
-      baseSalary: user.baseSalary.toFixed(2),
-      baseBonus: user.baseBonus.toFixed(2),
-      bonusPercentage: user.bonusPercentage.toFixed(2),
-      medicalInsurance: user.medicalInsurance.toFixed(2),
-      socialInsurance: user.socialInsurance.toFixed(2),
-      mealAllowance: user.mealAllowance.toFixed(2),
-      workingDays: user.workingDays,
-      shiftType: user.shiftType,
-      annualLeaveBalance: user.annualLeaveBalance.toString(),
-      monthlyLateAllowance: user.monthlyLateAllowance.toString(),
-      netSalary: user.netSalary.toFixed(2),
+      employeeName: user.employeeName || '',
+      department: user.department || '',
+      baseSalary: (user.baseSalary != null ? user.baseSalary : 0).toFixed(2),
+      baseBonus: (user.baseBonus != null ? user.baseBonus : 0).toFixed(2),
+      bonusPercentage: (user.bonusPercentage != null ? user.bonusPercentage : 0).toFixed(2),
+      medicalInsurance: (user.medicalInsurance != null ? user.medicalInsurance : 0).toFixed(2),
+      socialInsurance: (user.socialInsurance != null ? user.socialInsurance : 0).toFixed(2),
+      mealAllowance: (user.mealAllowance != null ? user.mealAllowance : 0).toFixed(2),
+      workingDays: user.workingDays || '5',
+      shiftType: user.shiftType || 'administrative',
+      annualLeaveBalance: (user.annualLeaveBalance != null ? user.annualLeaveBalance : 21).toString(),
+      monthlyLateAllowance: (user.monthlyLateAllowance != null ? user.monthlyLateAllowance : 120).toString(),
+      netSalary: (user.netSalary != null ? user.netSalary : 0).toFixed(2),
     });
   };
 
@@ -132,7 +135,7 @@ const EditUser = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => {
-      const updatedForm = { ...prev, [name]: value };
+      const updatedForm = { ...prev, [name]: name === 'password' ? value.trim().replace(/[^\w\s@#$%^&*()]/g, '') : value };
       const baseSalary = parseFloat(updatedForm.baseSalary || 0);
       const baseBonus = parseFloat(updatedForm.baseBonus || 0);
       const bonusPercentage = parseFloat(updatedForm.bonusPercentage || 0);
@@ -175,6 +178,12 @@ const EditUser = () => {
       return;
     }
 
+    if (form.password && !/^[a-zA-Z0-9@#$%^&*()]+$/.test(form.password)) {
+      setError('كلمة المرور تحتوي على أحرف غير صالحة');
+      setLoading(false);
+      return;
+    }
+
     if (parseFloat(form.baseSalary) < 0) {
       setError('الراتب الأساسي لا يمكن أن يكون سالبًا');
       setLoading(false);
@@ -191,7 +200,7 @@ const EditUser = () => {
         socialInsurance: parseFloat(form.socialInsurance),
         mealAllowance: parseFloat(form.mealAllowance),
         annualLeaveBalance: parseInt(form.annualLeaveBalance),
-        monthlyDelayAllowance: parseInt(form.monthlyDelayAllowance),
+        monthlyLateAllowance: parseInt(form.monthlyLateAllowance),
         netSalary: parseFloat(form.netSalary),
         updatedBy: user._id,
       };
@@ -199,6 +208,8 @@ const EditUser = () => {
       if (!form.password) {
         delete updateData.password;
       }
+
+      console.log('Sending update data:', updateData); // تسجيل البيانات المرسلة
 
       await axios.patch(
         `${process.env.REACT_APP_API_URL}/api/users/${selectedUser._id}`,
@@ -292,57 +303,20 @@ const EditUser = () => {
     }
   };
 
+  // دالة مساعدة لتنسيق القيم الرقمية
+  const formatNumber = (value) => {
+    return typeof value === 'number' ? value.toFixed(2) : '0.00';
+  };
+
   if (!user || user.role !== 'admin') {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
-      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+    <div className="min-h-screen bg-gradient-to-b from-white to-purple-50 py-8 px-4 sm:px-6 lg:px-8 font-noto-sans-arabic">
       <AnimatePresence>
-        {loading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50"
-          >
-            <div className="bg-white p-8 rounded-full shadow-lg border border-blue-100">
-              <div className="relative flex flex-col items-center justify-center">
-                <svg className="w-12 h-12" viewBox="0 0 50 50">
-                  <motion.circle
-                    cx="25"
-                    cy="25"
-                    r="20"
-                    fill="none"
-                    stroke="#60A5FA"
-                    strokeWidth="4"
-                    strokeDasharray="80 200"
-                    strokeLinecap="round"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                  />
-                </svg>
-                <span className="mt-4 text-sm font-semibold text-blue-400">
-                  جارٍ التحميل...
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-        {showSuccess && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed top-4 right-4 bg-green-100 text-green-600 p-4 rounded-xl shadow-lg flex items-center gap-2 z-50 font-cairo"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            تمت العملية بنجاح
-          </motion.div>
-        )}
+        {loading && <LoadingSpinner />}
+        {showSuccess && <SuccessCheckmark onComplete={() => setShowSuccess(false)} />}
         {showDeleteConfirm && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -354,7 +328,7 @@ const EditUser = () => {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white p-6 rounded-xl shadow-lg border border-purple-100 text-right max-w-md w-full font-cairo"
+              className="bg-white p-6 rounded-xl shadow-lg border border-blue-100 text-right max-w-md w-full"
             >
               <h3 className="text-xl font-bold text-purple-600 mb-4">
                 تأكيد الحذف
@@ -394,7 +368,7 @@ const EditUser = () => {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white p-8 rounded-xl shadow-lg border border-purple-100 text-right max-w-4xl w-full font-cairo"
+              className="bg-white p-8 rounded-xl shadow-lg border border-blue-100 text-right max-w-4xl w-full"
             >
               <h3 className="text-xl font-bold text-purple-600 mb-6">
                 {bulkUpdateType === 'baseSalary' && 'زيادة نسبة الراتب الأساسي'}
@@ -421,6 +395,7 @@ const EditUser = () => {
                         step="0.01"
                         required
                         disabled={loading}
+                        placeholder="أدخل النسبة المئوية"
                       />
                     </div>
                   )}
@@ -439,6 +414,7 @@ const EditUser = () => {
                         step={['baseBonus', 'medicalInsurance', 'socialInsurance'].includes(bulkUpdateType) ? '0.01' : '1'}
                         required
                         disabled={loading}
+                        placeholder="أدخل القيمة الجديدة"
                       />
                     </div>
                   )}
@@ -487,13 +463,14 @@ const EditUser = () => {
                                 className="h-4 w-4 text-blue-400 rounded focus:ring-blue-400"
                               />
                             </td>
-                            <td className="p-4 text-sm">{u.code}</td>
-                            <td className="p-4 text-sm">{u.employeeName}</td>
-                            <td className="p-4 text-sm">{u.department}</td>
+                            <td className="p-4 text-sm">{u.code || '-'}</td>
+                            <td className="p-4 text-sm">{u.employeeName || '-'}</td>
+                            <td className="p-4 text-sm">{u.department || '-'}</td>
                             <td className="p-4 text-sm">
                               {u.shiftType === 'administrative' ? 'إداري' :
                                u.shiftType === 'dayStation' ? 'محطة نهارًا' :
-                               u.shiftType === 'nightStation' ? 'محطة ليلًا' : '24/24'}
+                               u.shiftType === 'nightStation' ? 'محطة ليلًا' : 
+                               u.shiftType === '24/24' ? '24/24' : '-'}
                             </td>
                           </tr>
                         ))}
@@ -531,7 +508,7 @@ const EditUser = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-7xl mx-auto font-cairo"
+        className="bg-white p-8 rounded-2xl shadow-lg border border-blue-100 max-w-7xl mx-auto"
       >
         <h2 className="text-3xl font-bold text-blue-400 mb-8 text-right">
           إدارة الموظفين
@@ -630,24 +607,25 @@ const EditUser = () => {
                   <tbody>
                     {filteredUsers.map((u) => (
                       <tr key={u._id} className="border-b hover:bg-blue-50">
-                        <td className="p-4 text-sm">{u.code}</td>
-                        <td className="p-4 text-sm">{u.employeeName}</td>
-                        <td className="p-4 text-sm">{u.department}</td>
-                        <td className="p-4 text-sm">{u.baseSalary.toFixed(2)}</td>
-                        <td className="p-4 text-sm">{u.baseBonus.toFixed(2)}</td>
-                        <td className="p-4 text-sm">{u.bonusPercentage.toFixed(2)}</td>
-                        <td className="p-4 text-sm">{u.medicalInsurance.toFixed(2)}</td>
-                        <td className="p-4 text-sm">{u.socialInsurance.toFixed(2)}</td>
-                        <td className="p-4 text-sm">{u.mealAllowance.toFixed(2)}</td>
-                        <td className="p-4 text-sm">{u.workingDays === '5' ? '5 أيام' : '6 أيام'}</td>
+                        <td className="p-4 text-sm">{u.code || '-'}</td>
+                        <td className="p-4 text-sm">{u.employeeName || '-'}</td>
+                        <td className="p-4 text-sm">{u.department || '-'}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.baseSalary)}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.baseBonus)}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.bonusPercentage)}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.medicalInsurance)}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.socialInsurance)}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.mealAllowance)}</td>
+                        <td className="p-4 text-sm">{u.workingDays === '5' ? '5 أيام' : u.workingDays === '6' ? '6 أيام' : '-'}</td>
                         <td className="p-4 text-sm">
                           {u.shiftType === 'administrative' ? 'إداري' :
                            u.shiftType === 'dayStation' ? 'محطة نهارًا' :
-                           u.shiftType === 'nightStation' ? 'محطة ليلًا' : '24/24'}
+                           u.shiftType === 'nightStation' ? 'محطة ليلًا' : 
+                           u.shiftType === '24/24' ? '24/24' : '-'}
                         </td>
-                        <td className="p-4 text-sm">{u.annualLeaveBalance}</td>
-                        <td className="p-4 text-sm">{u.monthlyLateAllowance}</td>
-                        <td className="p-4 text-sm">{u.netSalary.toFixed(2)}</td>
+                        <td className="p-4 text-sm">{u.annualLeaveBalance != null ? u.annualLeaveBalance : '-'}</td>
+                        <td className="p-4 text-sm">{u.monthlyLateAllowance != null ? u.monthlyLateAllowance : '-'}</td>
+                        <td className="p-4 text-sm">{formatNumber(u.netSalary)}</td>
                         <td className="p-4 text-sm flex gap-2">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -676,16 +654,30 @@ const EditUser = () => {
         ) : (
           <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { name: 'code', label: 'كود الموظف', type: 'text', required: true },
-              { name: 'password', label: 'كلمة المرور (اتركها فارغة لعدم التغيير)', type: 'password' },
-              { name: 'employeeName', label: 'الاسم الكامل', type: 'text', required: true },
-              { name: 'department', label: 'القسم', type: 'text', required: true },
-              { name: 'baseSalary', label: 'الراتب الأساسي', type: 'number', min: '0', step: '0.01', required: true },
-              { name: 'baseBonus', label: 'الحافز الأساسي', type: 'number', min: '0', step: '0.01' },
-              { name: 'bonusPercentage', label: 'نسبة الحافز (%)', type: 'number', min: '0', max: '100', step: '0.01' },
-              { name: 'medicalInsurance', label: 'التأمين الطبي', type: 'number', min: '0', step: '0.01' },
-              { name: 'socialInsurance', label: 'التأمين الاجتماعي', type: 'number', min: '0', step: '0.01' },
-              { name: 'mealAllowance', label: 'بدل وجبة', type: 'number', min: '0', step: '0.01' },
+              { name: 'code', label: 'كود الموظف', type: 'text', required: true, placeholder: 'أدخل كود الموظف' },
+              { 
+                name: 'password', 
+                label: 'كلمة المرور (اتركها فارغة لعدم التغيير)', 
+                type: showPassword ? 'text' : 'password', // تبديل نوع الحقل بناءً على showPassword
+                placeholder: 'أدخل كلمة المرور',
+                extra: (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-2 top-2 text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )
+              },
+              { name: 'employeeName', label: 'الاسم الكامل', type: 'text', required: true, placeholder: 'أدخل الاسم الكامل' },
+              { name: 'department', label: 'القسم', type: 'text', required: true, placeholder: 'أدخل القسم' },
+              { name: 'baseSalary', label: 'الراتب الأساسي', type: 'number', min: '0', step: '0.01', required: true, placeholder: 'أدخل الراتب الأساسي' },
+              { name: 'baseBonus', label: 'الحافز الأساسي', type: 'number', min: '0', step: '0.01', placeholder: 'أدخل الحافز الأساسي' },
+              { name: 'bonusPercentage', label: 'نسبة الحافز (%)', type: 'number', min: '0', max: '100', step: '0.01', placeholder: 'أدخل نسبة الحافز' },
+              { name: 'medicalInsurance', label: 'التأمين الطبي', type: 'number', min: '0', step: '0.01', placeholder: 'أدخل التأمين الطبي' },
+              { name: 'socialInsurance', label: 'التأمين الاجتماعي', type: 'number', min: '0', step: '0.01', placeholder: 'أدخل التأمين الاجتماعي' },
+              { name: 'mealAllowance', label: 'بدل وجبة', type: 'number', min: '0', step: '0.01', placeholder: 'أدخل بدل الوجبة' },
               { name: 'workingDays', label: 'عدد أيام العمل', type: 'select', options: [
                 { value: '5', label: '5 أيام (الجمعة والسبت إجازة)' },
                 { value: '6', label: '6 أيام (الجمعة إجازة)' },
@@ -696,11 +688,11 @@ const EditUser = () => {
                 { value: 'nightStation', label: 'محطة ليلًا' },
                 { value: '24/24', label: '24/24' },
               ]},
-              { name: 'annualLeaveBalance', label: 'رصيد الإجازة السنوية', type: 'number', min: '0' },
-              { name: 'monthlyLateAllowance', label: 'رصيد دقائق التأخير الشهري', type: 'number', min: '0' },
+              { name: 'annualLeaveBalance', label: 'رصيد الإجازة السنوية', type: 'number', min: '0', placeholder: 'أدخل رصيد الإجازة' },
+              { name: 'monthlyLateAllowance', label: 'رصيد دقائق التأخير الشهري', type: 'number', min: '0', placeholder: 'أدخل رصيد دقائق التأخير' },
               { name: 'netSalary', label: 'الصافي', type: 'text', readOnly: true },
             ].map((field) => (
-              <div key={field.name}>
+              <div key={field.name} className="relative">
                 <label className="block text-gray-700 text-sm font-semibold mb-2 text-right">
                   {field.label}
                 </label>
@@ -717,19 +709,23 @@ const EditUser = () => {
                     ))}
                   </select>
                 ) : (
-                  <input
-                    type={field.type}
-                    name={field.name}
-                    value={form[field.name]}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 ${field.readOnly ? 'cursor-not-allowed bg-gray-100' : 'hover:bg-blue-50'}`}
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    required={field.required}
-                    readOnly={field.readOnly}
-                    disabled={loading}
-                  />
+                  <>
+                    <input
+                      type={field.type}
+                      name={field.name}
+                      value={form[field.name]}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border border-blue-100 rounded-lg text-right text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 bg-purple-50 ${field.readOnly ? 'cursor-not-allowed bg-gray-100' : 'hover:bg-blue-50'}`}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      required={field.required}
+                      readOnly={field.readOnly}
+                      disabled={loading}
+                      placeholder={field.placeholder}
+                    />
+                    {field.extra && field.extra}
+                  </>
                 )}
               </div>
             ))}
