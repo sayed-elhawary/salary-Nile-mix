@@ -1,5 +1,19 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+    new winston.transports.Console(),
+  ],
+});
 
 const userSchema = new mongoose.Schema({
   code: { type: String, required: true, unique: true },
@@ -27,10 +41,15 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
 });
 
+// فهرسة حقل code لتحسين الأداء
+userSchema.index({ code: 1 }, { unique: true });
+
 // تشفير كلمة المرور قبل الحفظ
 userSchema.pre('save', async function (next) {
   if (this.isModified('password')) {
+    logger.info(`Encrypting password for save (code: ${this.code})`);
     this.password = await bcrypt.hash(this.password, 10);
+    logger.info(`Password encrypted for code: ${this.code}`);
   }
   next();
 });
@@ -38,8 +57,10 @@ userSchema.pre('save', async function (next) {
 // تشفير كلمة المرور عند التحديث
 userSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate();
-  if (update.password) {
-    update.password = await bcrypt.hash(update.password, 10);
+  if (update.$set && update.$set.password && !update.$set.password.startsWith('$2a$')) {
+    logger.info(`Encrypting password for update (code: ${update.$set.code || 'unknown'})`);
+    update.$set.password = await bcrypt.hash(update.$set.password, 10);
+    logger.info(`Password encrypted for update (code: ${update.$set.code || 'unknown'})`);
   }
   next();
 });
