@@ -13,7 +13,7 @@ const app = express();
 
 // إعداد CORS
 app.use(cors({
-  origin: 'http://13.61.194.170:3000',
+  origin: 'http://54.174.124.189:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

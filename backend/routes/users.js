@@ -39,6 +39,87 @@ const validatePassword = (password) => {
   return null;
 };
 
+// دالة لحساب ساعات العمل (محدثة لتتماشى مع شيفت 24/24)
+const calculateWorkHours = (record, user, dailyRate, regularHourRate) => {
+  let workHours = 0;
+  let extraHours = 0;
+  let extraHoursCompensation = 0;
+  let hoursDeduction = 0;
+  let calculatedWorkDays = (record.checkIn || record.checkOut) ? 1 : 0;
+  let fridayBonus = 0;
+
+  if (record.checkIn && record.checkOut && record.status === 'present') {
+    const checkInDate = new Date(record.date);
+    checkInDate.setHours(parseInt(record.checkIn.split(':')[0]), parseInt(record.checkIn.split(':')[1]));
+    let checkOutDate = new Date(record.date);
+    checkOutDate.setHours(parseInt(record.checkOut.split(':')[0]), parseInt(record.checkOut.split(':')[1]));
+
+    // لشيفت 24/24، افترض دائمًا أن الانصراف في اليوم التالي
+    if (user.shiftType === '24/24') {
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+    } else if (checkOutDate < checkInDate) {
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+    }
+
+    workHours = (checkOutDate - checkInDate) / (1000 * 60 * 60);
+    workHours = Math.max(0, parseFloat(workHours.toFixed(2)));
+
+    if (user.shiftType === '24/24') {
+      if (workHours >= 9) {
+        extraHours = workHours - 9;
+        extraHoursCompensation = extraHours * regularHourRate;
+        calculatedWorkDays = 1;
+        hoursDeduction = 0;
+      } else {
+        extraHours = 0;
+        extraHoursCompensation = 0;
+        calculatedWorkDays = 1;
+        hoursDeduction = 9 - workHours;
+      }
+    } else if (user.shiftType === 'dayStation' || user.shiftType === 'nightStation') {
+      const isFriday = record.date.getDay() === 5;
+      const extraHourRate = isFriday ? regularHourRate * 2 : regularHourRate;
+      if (isFriday) {
+        workHours *= 2;
+        extraHours = workHours / 2;
+        extraHoursCompensation = extraHours * extraHourRate;
+        calculatedWorkDays = 2;
+        hoursDeduction = 0;
+        if (record.checkIn) {
+          fridayBonus = dailyRate;
+        }
+      } else if (workHours < 9) {
+        hoursDeduction = 9 - workHours;
+        extraHours = 0;
+        extraHoursCompensation = 0;
+        calculatedWorkDays = 1;
+      } else if (workHours > 9) {
+        extraHours = workHours - 9;
+        extraHoursCompensation = extraHours * extraHourRate;
+        calculatedWorkDays = 1;
+        hoursDeduction = 0;
+      } else {
+        extraHours = 0;
+        extraHoursCompensation = 0;
+        calculatedWorkDays = 1;
+        hoursDeduction = 0;
+      }
+    }
+  } else if ((user.shiftType === 'dayStation' || user.shiftType === 'nightStation') && (record.checkIn || record.checkOut)) {
+    workHours = 9;
+    extraHours = 0;
+    extraHoursCompensation = 0;
+    calculatedWorkDays = 1;
+    hoursDeduction = 0;
+    if (record.date.getDay() === 5 && record.checkIn) {
+      fridayBonus = dailyRate;
+    }
+  }
+
+  logger.info(`Calculated work hours for ${record.employeeCode} on ${record.date.toISOString().split('T')[0]}: workHours=${workHours}, extraHours=${extraHours}, hoursDeduction=${hoursDeduction}`);
+  return { workHours, extraHours, extraHoursCompensation, hoursDeduction, calculatedWorkDays, fridayBonus };
+};
+
 // جلب جميع المستخدمين أو البحث بكود
 router.get('/', auth, async (req, res) => {
   try {
@@ -312,9 +393,7 @@ router.post('/bulk-update', auth, async (req, res) => {
           updateData.baseBonus = parseFloat(baseBonus);
         } else if (type === 'medicalInsurance' && medicalInsurance !== undefined) {
           updateData.medicalInsurance = parseFloat(medicalInsurance);
-        } else if (type === 'socialInsurance' && socialInsurance !== undefined
-
-) {
+        } else if (type === 'socialInsurance' && socialInsurance !== undefined) {
           updateData.socialInsurance = parseFloat(socialInsurance);
         }
 
@@ -377,7 +456,7 @@ router.get('/salary-report', auth, async (req, res) => {
       }
       logger.info(`Attendance query for user ${user.code}:`, attendanceQuery);
 
-      let attendanceRecords = await Attendance.find(attendanceQuery).lean();
+      let attendanceRecords = await Attendance.find(attendanceQuery).sort({ date: 1 }).lean();
       logger.info(`Found ${attendanceRecords.length} attendance records for user ${user.code}`);
 
       const daysInRange = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
@@ -386,6 +465,7 @@ router.get('/salary-report', auth, async (req, res) => {
         allDates.push(new Date(d));
       }
 
+      // إنشاء سجلات افتراضية للأيام المفقودة
       for (const date of allDates) {
         const existingRecord = attendanceRecords.find(
           (record) => record.date.toDateString() === date.toDateString()
@@ -412,6 +492,7 @@ router.get('/salary-report', auth, async (req, res) => {
             leaveCompensation: 0,
             medicalLeaveDeduction: 0,
             createdBy: req.user.id,
+            totalExtraHours: 0,
           };
           if (!shiftType || shiftType === 'all' || newRecord.shiftType === (shiftTypeMap[sanitizeInput(shiftType)] || sanitizeInput(shiftType))) {
             await new Attendance(newRecord).save();
@@ -428,6 +509,7 @@ router.get('/salary-report', auth, async (req, res) => {
         officialLeaveDays = 0,
         medicalLeaveDays = 0,
         totalWorkHours = 0,
+        totalExtraHours = 0,
         totalExtraHoursCompensation = 0,
         totalFridayBonus = 0,
         totalLeaveCompensation = 0,
@@ -435,9 +517,12 @@ router.get('/salary-report', auth, async (req, res) => {
         totalDeductedDaysFromAttendance = 0,
         totalHoursDeduction = 0;
 
-      attendanceRecords.forEach((record) => {
+      // إعادة ترتيب السجلات حسب التاريخ
+      attendanceRecords = attendanceRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      for (const record of attendanceRecords) {
         if (shiftType && shiftType !== 'all' && record.shiftType !== (shiftTypeMap[sanitizeInput(shiftType)] || sanitizeInput(shiftType))) {
-          return;
+          continue;
         }
 
         switch (record.status) {
@@ -463,15 +548,13 @@ router.get('/salary-report', auth, async (req, res) => {
         }
 
         totalWorkHours += parseFloat(record.workHours || 0);
+        totalExtraHours += parseFloat(record.extraHours || 0);
         totalExtraHoursCompensation += parseFloat(record.extraHoursCompensation || 0);
         totalHoursDeduction += parseFloat(record.hoursDeduction || 0);
         totalLeaveCompensation += parseFloat(record.leaveCompensation || 0);
         totalDeductedDaysFromAttendance += parseFloat(record.deductedDays || 0);
-
-        if (!['dayStation', 'nightStation'].includes(user.shiftType)) {
-          totalFridayBonus += parseFloat(record.fridayBonus || 0);
-        }
-      });
+        totalFridayBonus += parseFloat(record.fridayBonus || 0);
+      }
 
       if (!shiftType || shiftType === 'all' || user.shiftType === (shiftTypeMap[sanitizeInput(shiftType)] || sanitizeInput(shiftType))) {
         const totalWorkDays = presentDays;
@@ -488,10 +571,11 @@ router.get('/salary-report', auth, async (req, res) => {
 
         const netSalary =
           parseFloat(user.baseSalary || 0) +
+          parseFloat(user.baseBonus || 0) +
           finalMealAllowance +
           totalLeaveCompensation +
           totalExtraHoursCompensation +
-          (['dayStation', 'nightStation'].includes(user.shiftType) ? 0 : totalFridayBonus) -
+          totalFridayBonus -
           totalDeductionsAmount -
           totalHoursDeductionAmount -
           (parseFloat(user.violationsDeduction || 0)) -
@@ -503,6 +587,7 @@ router.get('/salary-report', auth, async (req, res) => {
           employeeCode: user.code,
           employeeName: user.employeeName,
           baseSalary: parseFloat(user.baseSalary || 0),
+          baseBonus: parseFloat(user.baseBonus || 0),
           workingDays: user.workingDays,
           mealAllowance: finalMealAllowance,
           shiftType: user.shiftType,
@@ -518,9 +603,10 @@ router.get('/salary-report', auth, async (req, res) => {
           totalLeaveCompensation,
           totalMedicalLeaveDeduction,
           totalWorkDays,
-          totalWorkHours,
-          totalExtraHoursCompensation,
-          totalFridayBonus: ['dayStation', 'nightStation'].includes(user.shiftType) ? 0 : totalFridayBonus,
+          totalWorkHours: parseFloat(totalWorkHours.toFixed(2)),
+          totalExtraHours: parseFloat(totalExtraHours.toFixed(2)),
+          totalExtraHoursCompensation: parseFloat(totalExtraHoursCompensation.toFixed(2)),
+          totalFridayBonus,
           totalAbsentDeduction,
           totalMealAllowanceDeduction,
           totalHoursDeduction: parseFloat(totalHoursDeduction.toFixed(2)),
@@ -528,6 +614,8 @@ router.get('/salary-report', auth, async (req, res) => {
           violationsDeduction: parseFloat(user.violationsDeduction || 0),
           advancesTotal: parseFloat(user.advancesTotal || 0),
           advancesDeduction: parseFloat(user.advancesDeduction || 0),
+          annualLeaveBalance: parseFloat(attendanceRecords[attendanceRecords.length - 1]?.annualLeaveBalance || user.annualLeaveBalance || 21),
+          monthlyLateAllowance: parseFloat(attendanceRecords[attendanceRecords.length - 1]?.monthlyLateAllowance || user.monthlyLateAllowance || 120),
           netSalary: parseFloat(netSalary.toFixed(2)),
         };
       }
@@ -592,9 +680,14 @@ function calculateStatus(date, workingDays, shiftType) {
   const daysOfWeek = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   const day = daysOfWeek[date.getDay()];
 
+  if (shiftType === '24/24' && day === 'الجمعة') {
+    logger.info(`Calculated status for ${date.toISOString().split('T')[0]}: weekly_off (Friday for 24/24 shift)`);
+    return 'weekly_off';
+  }
+
   let workDaysArray;
   if (shiftType === '24/24') {
-    workDaysArray = daysOfWeek;
+    workDaysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'السبت'];
   } else if (shiftType === 'dayStation' || shiftType === 'nightStation') {
     workDaysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'السبت'];
   } else {
