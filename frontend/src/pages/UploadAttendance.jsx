@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../components/AuthProvider';
-import { Trash2, Edit, Save, X, Calendar, Upload, Search } from 'lucide-react';
+import { Trash2, Edit, Save, X, Calendar, Upload, Search, AlertTriangle } from 'lucide-react';
 
-// Note: Ensure backend validates shift calculations for 'administrative', 'dayStation', and 'nightStation' shifts to fix inaccuracies in work hours and deductions.
-// Additionally, verify 'monthlyLateAllowance' calculation as it appears static (120) even on absent or leave days, which may be incorrect.
+// ملاحظة:
+// - الساعات الإضافية للشيفت الإداري تُحسب بعد الساعة 17:30 بناءً على checkOut.
+// - الساعات الإضافية للشيفتات (محطة نهار، محطة ليل، 24/24) تُحسب إذا تجاوزت ساعات العمل 9 ساعات.
+// - حقل monthlyLateAllowance يظهر في نافذة التعديل فقط للشيفت الإداري مع التحقق من أن القيمة عدد صحيح إيجابي.
+// - تم إزالة زر ونموذج إعادة رصيد السماح بناءً على الطلب.
+// - يتم عرض تحذير إذا كان رصيد السماح بالتأخير أقل من 30 دقيقة للشيفت الإداري.
+// - تم تصحيح مشكلة الإجازة السنوية بحيث يعود السجل إلى "غياب" عند إلغاء تحديد جميع خانات الإجازات.
+// - تم تصحيح تحديث monthlyLateAllowance ليعكس التغييرات مباشرة مع البحث.
 
 const UploadAttendance = () => {
   const { user, logout } = useContext(AuthContext);
@@ -48,6 +54,26 @@ const UploadAttendance = () => {
       navigate('/login');
     }
   }, [user, navigate]);
+
+  const calculateExtraHours = (record) => {
+    const { checkOut, shiftType, workHours } = record;
+    
+    if (shiftType === 'administrative' && checkOut) {
+      const [hours, minutes] = checkOut.split(':').map(Number);
+      const checkOutTime = hours * 60 + minutes;
+      const thresholdTime = 17 * 60 + 30; // 17:30 (5:30 PM) in minutes
+      if (checkOutTime > thresholdTime) {
+        return (checkOutTime - thresholdTime) / 60; // Convert minutes to hours
+      }
+      return 0;
+    }
+    
+    if (['dayStation', 'nightStation', '24/24'].includes(shiftType) && workHours > 9) {
+      return workHours - 9;
+    }
+    
+    return 0;
+  };
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -125,16 +151,13 @@ const UploadAttendance = () => {
         params,
       });
       const records = response.data.records.map((record) => {
-        // حساب الساعات الإضافية لشيفتات محطة نهار/ليل فقط
-        let extraHours = 0;
-        if (['dayStation', 'nightStation'].includes(record.shiftType) && record.workHours > 9) {
-          extraHours = record.workHours - 9;
-        }
+        const extraHours = calculateExtraHours(record);
         return {
           ...record,
-          workHours: record.shiftType === '24/24' && record.workHours > 24 ? 24 : record.workHours,
-          extraHours: record.shiftType === 'administrative' ? 0 : extraHours,
+          workHours: record.shiftType === 'administrative' && (record.checkIn || record.checkOut) && !(record.checkIn && record.checkOut) ? 9 : record.workHours,
+          extraHours,
           annualLeaveBalance: Math.floor(record.annualLeaveBalance || 0),
+          monthlyLateAllowance: record.shiftType === 'administrative' ? record.monthlyLateAllowance : '-',
         };
       });
       const summaries = response.data.summaries || {};
@@ -143,8 +166,16 @@ const UploadAttendance = () => {
           .filter((record) => record.employeeCode === employeeCode)
           .reduce((sum, record) => sum + (record.workHours || 0), 0);
         summaries[employeeCode].totalExtraHours = records
-          .filter((record) => record.employeeCode === employeeCode && ['dayStation', 'nightStation'].includes(record.shiftType))
+          .filter((record) => record.employeeCode === employeeCode)
           .reduce((sum, record) => sum + (record.extraHours || 0), 0);
+        if (records.some((record) => record.employeeCode === employeeCode && record.shiftType === 'administrative')) {
+          const lastRecord = records
+            .filter((record) => record.employeeCode === employeeCode && record.shiftType === 'administrative')
+            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+          if (lastRecord && lastRecord.monthlyLateAllowance < 30) {
+            summaries[employeeCode].warning = `تحذير: رصيد السماح بالتأخير منخفض (${lastRecord.monthlyLateAllowance} دقيقة)`;
+          }
+        }
       });
       setRecords(records);
       setSummaries(summaries);
@@ -179,16 +210,13 @@ const UploadAttendance = () => {
         params,
       });
       const records = response.data.records.map((record) => {
-        // حساب الساعات الإضافية لشيفتات محطة نهار/ليل فقط
-        let extraHours = 0;
-        if (['dayStation', 'nightStation'].includes(record.shiftType) && record.workHours > 9) {
-          extraHours = record.workHours - 9;
-        }
+        const extraHours = calculateExtraHours(record);
         return {
           ...record,
-          workHours: record.shiftType === '24/24' && record.workHours > 24 ? 24 : record.workHours,
-          extraHours: record.shiftType === 'administrative' ? 0 : extraHours,
+          workHours: record.shiftType === 'administrative' && (record.checkIn || record.checkOut) && !(record.checkIn && record.checkOut) ? 9 : record.workHours,
+          extraHours,
           annualLeaveBalance: Math.floor(record.annualLeaveBalance || 0),
+          monthlyLateAllowance: record.shiftType === 'administrative' ? record.monthlyLateAllowance : '-',
         };
       });
       const summaries = response.data.summaries || {};
@@ -197,8 +225,16 @@ const UploadAttendance = () => {
           .filter((record) => record.employeeCode === employeeCode)
           .reduce((sum, record) => sum + (record.workHours || 0), 0);
         summaries[employeeCode].totalExtraHours = records
-          .filter((record) => record.employeeCode === employeeCode && ['dayStation', 'nightStation'].includes(record.shiftType))
+          .filter((record) => record.employeeCode === employeeCode)
           .reduce((sum, record) => sum + (record.extraHours || 0), 0);
+        if (records.some((record) => record.employeeCode === employeeCode && record.shiftType === 'administrative')) {
+          const lastRecord = records
+            .filter((record) => record.employeeCode === employeeCode && record.shiftType === 'administrative')
+            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+          if (lastRecord && lastRecord.monthlyLateAllowance < 30) {
+            summaries[employeeCode].warning = `تحذير: رصيد السماح بالتأخير منخفض (${lastRecord.monthlyLateAllowance} دقيقة)`;
+          }
+        }
       });
       setRecords(records);
       setSummaries(summaries);
@@ -270,7 +306,9 @@ const UploadAttendance = () => {
       isLeaveCompensation: record.status === 'leave' && record.leaveCompensation > 0,
       isMedicalLeave: record.status === 'medical_leave',
       calculatedWorkDays: record.calculatedWorkDays || 0,
-      extraHours: record.shiftType === 'administrative' ? 0 : record.extraHours || 0,
+      extraHours: calculateExtraHours(record),
+      monthlyLateAllowance: record.shiftType === 'administrative' ? record.monthlyLateAllowance : 0,
+      shiftType: record.shiftType,
     });
     setShowEditModal(true);
   };
@@ -279,6 +317,13 @@ const UploadAttendance = () => {
     const { name, value, type, checked } = e.target;
     setEditRecord((prev) => {
       const newRecord = { ...prev, [name]: type === 'checkbox' ? checked : value };
+      if (name === 'checkOut' || name === 'checkIn') {
+        newRecord.extraHours = calculateExtraHours({ ...newRecord, [name]: value });
+      }
+      if (name === 'monthlyLateAllowance') {
+        const allowance = parseInt(value, 10);
+        newRecord.monthlyLateAllowance = isNaN(allowance) || allowance < 0 ? 0 : allowance;
+      }
       if (name === 'isAnnualLeave' && checked) {
         newRecord.isLeaveCompensation = false;
         newRecord.isMedicalLeave = false;
@@ -307,6 +352,17 @@ const UploadAttendance = () => {
         newRecord.isAnnualLeave = false;
         newRecord.isLeaveCompensation = false;
         newRecord.isMedicalLeave = false;
+      } else if (
+        (name === 'isAnnualLeave' && !checked && !newRecord.isLeaveCompensation && !newRecord.isMedicalLeave) ||
+        (name === 'isLeaveCompensation' && !checked && !newRecord.isAnnualLeave && !newRecord.isMedicalLeave) ||
+        (name === 'isMedicalLeave' && !checked && !newRecord.isAnnualLeave && !newRecord.isLeaveCompensation)
+      ) {
+        // إذا تم إلغاء تحديد جميع خانات الإجازات، ضبط الحالة على "غياب"
+        newRecord.status = 'absent';
+        newRecord.checkIn = '';
+        newRecord.checkOut = '';
+        newRecord.calculatedWorkDays = 0;
+        newRecord.extraHours = 0;
       }
       return newRecord;
     });
@@ -335,12 +391,22 @@ const UploadAttendance = () => {
       return;
     }
 
+    if (editRecord.shiftType === 'administrative' && (isNaN(editRecord.monthlyLateAllowance) || editRecord.monthlyLateAllowance < 0)) {
+      setError('رصيد السماح بالتأخير يجب أن يكون عددًا صحيحًا إيجابيًا');
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem('token');
+    const payload = {
+      ...editRecord,
+      monthlyLateAllowance: editRecord.shiftType === 'administrative' ? editRecord.monthlyLateAllowance : undefined,
+    };
 
     try {
       await axios.put(
         `${process.env.REACT_APP_API_URL}/api/attendance/${editRecord.id}`,
-        editRecord,
+        payload,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -351,7 +417,7 @@ const UploadAttendance = () => {
         setEditRecord(null);
         setShowEditModal(false);
         handleSearch();
-      }, 1000); // Reduced timeout for faster response
+      }, 1000);
     } catch (err) {
       if (err.response?.status === 401) {
         logout();
@@ -463,7 +529,7 @@ const UploadAttendance = () => {
     if (typeof value === 'number') {
       return Number.isInteger(value) ? value.toString() : value.toFixed(2);
     }
-    return '0';
+    return value === '-' ? '-' : '0';
   };
 
   return (
@@ -500,6 +566,18 @@ const UploadAttendance = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
             </svg>
             {successMessage}
+          </motion.div>
+        )}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-6 left-6 bg-red-100 text-red-700 p-4 rounded-xl shadow-lg z-50 text-sm font-semibold flex items-center"
+          >
+            <AlertTriangle className="w-5 h-5 ml-2" />
+            {error}
           </motion.div>
         )}
         {showDeleteConfirm && (
@@ -550,17 +628,6 @@ const UploadAttendance = () => {
         className="bg-white p-8 rounded-2xl shadow-2xl border border-purple-100 max-w-7xl mx-auto"
       >
         <h2 className="text-2xl font-bold text-purple-800 mb-6">إدارة بصمات الموظفين</h2>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm font-semibold"
-          >
-            {error}
-          </motion.div>
-        )}
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="relative w-full sm:w-1/2">
@@ -568,7 +635,7 @@ const UploadAttendance = () => {
                 type="file"
                 accept=".csv,.xlsx"
                 onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-purple-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 bg-white hover:bg-purple-50 transition-colors duration-200"
+                className="w-full px-4 py-2 border border-purple-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 bg-white hover:bg-purple-50 transition-colors duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200"
                 disabled={loading}
               />
               <Upload className="absolute left-3 top-2.5 h-5 w-5 text-purple-500" />
@@ -980,6 +1047,21 @@ const UploadAttendance = () => {
                       placeholder="HH:mm (مثال: 17:00)"
                     />
                   </div>
+                  {editRecord.shiftType === 'administrative' && (
+                    <div>
+                      <label className="block text-purple-700 text-sm font-semibold mb-1">رصيد السماح بالتأخير (دقائق)</label>
+                      <input
+                        type="number"
+                        value={editRecord.monthlyLateAllowance}
+                        onChange={handleEditChange}
+                        name="monthlyLateAllowance"
+                        min="0"
+                        className="w-full px-4 py-2 border border-purple-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 bg-white hover:bg-purple-50 transition-colors duration-200"
+                        disabled={loading}
+                        placeholder="أدخل عدد الدقائق"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-purple-700 text-sm font-semibold mb-1">الحالة</label>
                     <select
@@ -1077,13 +1159,8 @@ const UploadAttendance = () => {
                     <th className="px-4 py-3 font-semibold text-purple-800">الانصراف</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">نوع الدوام</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">أيام العمل</th>
-                    {records.some((record) => ['dayStation', 'nightStation', '24/24'].includes(record.shiftType)) && (
-                      <>
-                        <th className="px-4 py-3 font-semibold text-purple-800">دقائق التأخير</th>
-                        <th className="px-4 py-3 font-semibold text-purple-800">بدل التأخير</th>
-                        <th className="px-4 py-3 font-semibold text-purple-800">خصم الساعات</th>
-                      </>
-                    )}
+                    <th className="px-4 py-3 font-semibold text-purple-800">دقائق التأخير</th>
+                    <th className="px-4 py-3 font-semibold text-purple-800">رصيد السماح بالتأخير</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">الأيام المخصومة</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">رصيد الإجازة</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">حالة الحضور</th>
@@ -1096,14 +1173,10 @@ const UploadAttendance = () => {
                 </thead>
                 <tbody>
                   {records.map((record, index) => {
-                    const workHours = ['dayStation', 'nightStation', '24/24'].includes(record.shiftType)
-                      ? formatNumber(record.workHours)
-                      : '-';
-                    const extraHours = record.shiftType === 'administrative'
-                      ? '-'
-                      : ['dayStation', 'nightStation'].includes(record.shiftType)
-                      ? formatNumber(record.extraHours)
-                      : '-';
+                    const workHours = record.shiftType === 'administrative' && (record.checkIn || record.checkOut) && !(record.checkIn && record.checkOut)
+                      ? '9.00'
+                      : formatNumber(record.workHours);
+                    const extraHours = formatNumber(record.extraHours);
                     const rowClass =
                       record.status === 'absent'
                         ? 'bg-red-50 text-red-600'
@@ -1114,6 +1187,8 @@ const UploadAttendance = () => {
                         : index % 2 === 0
                         ? 'bg-white'
                         : 'bg-purple-50';
+                    const isLate = record.shiftType === 'administrative' && record.lateMinutes > 0;
+                    const isLowAllowance = record.shiftType === 'administrative' && record.monthlyLateAllowance !== '-' && record.monthlyLateAllowance < 30;
                     return (
                       <motion.tr
                         key={record._id || Math.random()}
@@ -1139,20 +1214,18 @@ const UploadAttendance = () => {
                             : '-'}
                         </td>
                         <td className="px-4 py-3">{record.workingDays === '5' ? '5 أيام' : '6 أيام'}</td>
-                        {['dayStation', 'nightStation', '24/24'].includes(record.shiftType) ? (
-                          <>
-                            <td className="px-4 py-3">{formatNumber(record.lateMinutes || 0)}</td>
-                            <td className="px-4 py-3">{formatNumber(record.monthlyLateAllowance || 0)}</td>
-                            <td className="px-4 py-3">{formatNumber(record.hoursDeduction || 0)}</td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-4 py-3">-</td>
-                            <td className="px-4 py-3">-</td>
-                            <td className="px-4 py-3">-</td>
-                          </>
-                        )}
-                        <td className="px-4 py-3">{formatNumber(record.deductedDays)}</td>
+                        <td className={`px-4 py-3 ${isLate ? 'font-semibold text-red-600' : ''}`}>
+                          {record.shiftType === 'administrative' ? formatNumber(record.lateMinutes || 0) : '-'}
+                        </td>
+                        <td className={`px-4 py-3 ${isLowAllowance ? 'font-semibold text-red-600' : ''}`}>
+                          {record.monthlyLateAllowance}
+                          {isLowAllowance && (
+                            <AlertTriangle className="inline h-4 w-4 mr-1 text-red-600" />
+                          )}
+                        </td>
+                        <td className={`px-4 py-3 ${record.deductedDays > 0 ? 'font-semibold text-red-600' : ''}`}>
+                          {formatNumber(record.deductedDays)}
+                        </td>
                         <td className="px-4 py-3">{formatNumber(record.annualLeaveBalance)}</td>
                         <td className="px-4 py-3">
                           {record.status === 'present'
@@ -1209,55 +1282,55 @@ const UploadAttendance = () => {
                     <th className="px-4 py-3 font-semibold text-purple-800">أيام الإجازة</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">أيام الإجازة الرسمية</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">أيام الإجازة المرضية</th>
+                    <th className="px-4 py-3 font-semibold text-purple-800">إجمالي دقائق التأخير</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">إجمالي الأيام المخصومة</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">إجمالي بدل الإجازة</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">إجمالي خصم الإجازة المرضية</th>
-                    <th className="px-4 py-3 font-semibold text-purple-800">إجمالي خصم الساعات</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">إجمالي أيام العمل المحسوبة</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">إجمالي ساعات العمل</th>
                     <th className="px-4 py-3 font-semibold text-purple-800">إجمالي الساعات الإضافية</th>
-                    <th className="px-4 py-3 font-semibold text-purple-800">إجمالي تعويض الساعات الإضافية</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(summaries).map(([employeeCode, summary], index) => (
-                    <motion.tr
-                      key={employeeCode}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      className={`border-b border-purple-200 ${index % 2 === 0 ? 'bg-white' : 'bg-purple-50'} hover:bg-purple-100 transition-colors duration-200`}
-                    >
-                      <td className="px-3 py-2">{employeeCode}</td>
-                      <td className="px-3 py-2">{summary.employeeName}</td>
-                      <td className="px-3 py-2">{summary.presentDays || 0}</td>
-                      <td className="px-3 py-2">{summary.absentDays || 0}</td>
-                      <td className="px-3 py-2">{summary.weeklyOffDays || 0}</td>
-                      <td className="px-3 py-2">{summary.leaveDays || 0}</td>
-                      <td className="px-3 py-2">{summary.officialLeaveDays || 0}</td>
-                      <td className="px-3 py-2">{summary.medicalLeaveDays || 0}</td>
-                      <td className="px-3 py-2">{summary.totalDeductedDays || 0}</td>
-                      <td className="px-3 py-2">{summary.totalLeaveCompensation ? formatNumber(summary.totalLeaveCompensation) : 0}</td>
-                      <td className="px-3 py-2">{summary.totalMedicalLeaveDeduction ? formatNumber(summary.totalMedicalLeaveDeduction) : 0}</td>
-                      <td className="px-3 py-2">{summary.totalHoursDeduction ? formatNumber(summary.totalHoursDeduction) : 0}</td>
-                      <td className="px-3 py-2">{summary.totalWorkDays || 0}</td>
-                      <td className="px-3 py-2">{summary.totalWorkHours ? formatNumber(summary.totalWorkHours) : 0}</td>
-                      <td className="px-3 py-2">{summary.totalExtraHours ? formatNumber(summary.totalExtraHours) : 0}</td>
-                      <td className="px-3 py-2">{summary.totalExtraHoursCompensation ? formatNumber(summary.totalExtraHoursCompensation) : 0}</td>
-                    </motion.tr>
-                  ))}
+                  {Object.keys(summaries).map((employeeCode, index) => {
+                    const summary = summaries[employeeCode];
+                    const isLowAllowance = records.some(
+                      (record) =>
+                        record.employeeCode === employeeCode &&
+                        record.shiftType === 'administrative' &&
+                        record.monthlyLateAllowance !== '-' &&
+                        record.monthlyLateAllowance < 30
+                    );
+                    return (
+                      <motion.tr
+                        key={employeeCode}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className={`border-b border-purple-200 hover:bg-purple-100 transition-colors duration-200 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-purple-50'
+                        } ${isLowAllowance ? 'text-red-600 font-semibold' : ''}`}
+                      >
+                        <td className="px-4 py-3">{employeeCode}</td>
+                        <td className="px-4 py-3">{summary.employeeName}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalPresentDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalAbsentDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalWeeklyOffDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalLeaveDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalOfficialLeaveDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalMedicalLeaveDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalLateMinutes)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalDeductedDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalLeaveCompensation)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalMedicalLeaveDeduction)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalCalculatedWorkDays)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalWorkHours)}</td>
+                        <td className="px-4 py-3">{formatNumber(summary.totalExtraHours)}</td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              {Object.entries(summaries).map(([employeeCode, summary]) => (
-                summary.warning && (
-                  <p
-                    key={employeeCode}
-                    className="text-red-600 text-sm font-semibold mt-2 px-3 pb-2"
-                  >
-                    {summary.warning}
-                  </p>
-                )
-              ))}
             </motion.div>
           )}
         </div>

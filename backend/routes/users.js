@@ -39,7 +39,7 @@ const validatePassword = (password) => {
   return null;
 };
 
-// دالة لحساب ساعات العمل (محدثة لتتماشى مع شيفت 24/24)
+// دالة لحساب ساعات العمل
 const calculateWorkHours = (record, user, dailyRate, regularHourRate) => {
   let workHours = 0;
   let extraHours = 0;
@@ -64,7 +64,24 @@ const calculateWorkHours = (record, user, dailyRate, regularHourRate) => {
     workHours = (checkOutDate - checkInDate) / (1000 * 60 * 60);
     workHours = Math.max(0, parseFloat(workHours.toFixed(2)));
 
-    if (user.shiftType === '24/24') {
+    if (user.shiftType === 'administrative') {
+      // للشيفت الإداري: الساعات الإضافية بعد الساعة 17:30
+      const checkOutTime = parseInt(record.checkOut.split(':')[0]) * 60 + parseInt(record.checkOut.split(':')[1]);
+      const thresholdTime = 17 * 60 + 30; // 17:30
+      if (checkOutTime > thresholdTime) {
+        extraHours = (checkOutTime - thresholdTime) / 60;
+        extraHours = parseFloat(extraHours.toFixed(2));
+        const hourlyRate = (user.baseSalary / 30) / 9;
+        extraHoursCompensation = extraHours * hourlyRate;
+        calculatedWorkDays = 1;
+        hoursDeduction = workHours < 9 ? 9 - workHours : 0;
+      } else {
+        extraHours = 0;
+        extraHoursCompensation = 0;
+        calculatedWorkDays = 1;
+        hoursDeduction = workHours < 9 ? 9 - workHours : 0;
+      }
+    } else if (user.shiftType === '24/24') {
       if (workHours >= 9) {
         extraHours = workHours - 9;
         extraHoursCompensation = extraHours * regularHourRate;
@@ -116,7 +133,7 @@ const calculateWorkHours = (record, user, dailyRate, regularHourRate) => {
     }
   }
 
-  logger.info(`Calculated work hours for ${record.employeeCode} on ${record.date.toISOString().split('T')[0]}: workHours=${workHours}, extraHours=${extraHours}, hoursDeduction=${hoursDeduction}`);
+  logger.info(`Calculated work hours for ${record.employeeCode} on ${record.date.toISOString().split('T')[0]}: workHours=${workHours}, extraHours=${extraHours}, extraHoursCompensation=${extraHoursCompensation}, hoursDeduction=${hoursDeduction}`);
   return { workHours, extraHours, extraHoursCompensation, hoursDeduction, calculatedWorkDays, fridayBonus };
 };
 
@@ -447,6 +464,9 @@ router.get('/salary-report', auth, async (req, res) => {
     end.setHours(23, 59, 59, 999);
 
     for (const user of users) {
+      const dailySalary = parseFloat(user.baseSalary || 0) / 30;
+      const hourlyRate = dailySalary / 9;
+
       const attendanceQuery = {
         employeeCode: user.code,
         date: { $gte: start, $lte: end },
@@ -492,7 +512,6 @@ router.get('/salary-report', auth, async (req, res) => {
             leaveCompensation: 0,
             medicalLeaveDeduction: 0,
             createdBy: req.user.id,
-            totalExtraHours: 0,
           };
           if (!shiftType || shiftType === 'all' || newRecord.shiftType === (shiftTypeMap[sanitizeInput(shiftType)] || sanitizeInput(shiftType))) {
             await new Attendance(newRecord).save();
@@ -525,9 +544,16 @@ router.get('/salary-report', auth, async (req, res) => {
           continue;
         }
 
+        const { workHours, extraHours, extraHoursCompensation, hoursDeduction, calculatedWorkDays, fridayBonus } = calculateWorkHours(record, user, dailySalary, hourlyRate);
+
         switch (record.status) {
           case 'present':
-            presentDays++;
+            presentDays += calculatedWorkDays;
+            totalWorkHours += workHours;
+            totalExtraHours += extraHours;
+            totalExtraHoursCompensation += extraHoursCompensation;
+            totalHoursDeduction += hoursDeduction;
+            totalFridayBonus += fridayBonus;
             break;
           case 'absent':
             absentDays++;
@@ -537,31 +563,35 @@ router.get('/salary-report', auth, async (req, res) => {
             break;
           case 'leave':
             leaveDays++;
+            totalLeaveCompensation += parseFloat(record.leaveCompensation || 0);
             break;
           case 'official_leave':
             officialLeaveDays++;
             break;
           case 'medical_leave':
             medicalLeaveDays++;
-            totalMedicalLeaveDeduction += parseFloat(record.medicalLeaveDeduction) || (parseFloat(user.baseSalary || 0) / 30) * 0.25;
+            totalMedicalLeaveDeduction += parseFloat(record.medicalLeaveDeduction || (dailySalary * 0.25));
             break;
         }
 
-        totalWorkHours += parseFloat(record.workHours || 0);
-        totalExtraHours += parseFloat(record.extraHours || 0);
-        totalExtraHoursCompensation += parseFloat(record.extraHoursCompensation || 0);
-        totalHoursDeduction += parseFloat(record.hoursDeduction || 0);
-        totalLeaveCompensation += parseFloat(record.leaveCompensation || 0);
         totalDeductedDaysFromAttendance += parseFloat(record.deductedDays || 0);
-        totalFridayBonus += parseFloat(record.fridayBonus || 0);
       }
 
       if (!shiftType || shiftType === 'all' || user.shiftType === (shiftTypeMap[sanitizeInput(shiftType)] || sanitizeInput(shiftType))) {
         const totalWorkDays = presentDays;
-        const dailySalary = parseFloat(user.baseSalary || 0) / 30;
-        const hourlyRate = dailySalary / 9;
         const totalAbsentDeduction = absentDays * dailySalary;
-        const totalMealAllowanceDeduction = (absentDays + leaveDays + medicalLeaveDays) * 50;
+
+        // حساب خصم بدل الوجبة بناءً على الشروط الجديدة
+        let totalMealAllowanceDeduction = 0;
+        if (user.shiftType === '24/24') {
+          // خصم 50 جنيهًا لكل يوم غياب بعد 15 يومًا
+          const deductibleAbsentDays = absentDays > 15 ? absentDays - 15 : 0;
+          totalMealAllowanceDeduction = Math.min(deductibleAbsentDays * 50, parseFloat(user.mealAllowance || 500));
+        } else {
+          // خصم 50 جنيهًا لكل يوم غياب أو إجازة سنوية
+          totalMealAllowanceDeduction = Math.min((absentDays + leaveDays) * 50, parseFloat(user.mealAllowance || 500));
+        }
+
         const totalDeductions = totalDeductedDaysFromAttendance + (medicalLeaveDays * 0.25) + absentDays;
         const totalDeductionsAmount = totalDeductions * dailySalary;
         const totalHoursDeductionAmount = totalHoursDeduction * hourlyRate;
@@ -578,10 +608,10 @@ router.get('/salary-report', auth, async (req, res) => {
           totalFridayBonus -
           totalDeductionsAmount -
           totalHoursDeductionAmount -
-          (parseFloat(user.violationsDeduction || 0)) -
-          (parseFloat(user.advancesDeduction || 0)) -
-          (parseFloat(user.medicalInsurance || 0)) -
-          (parseFloat(user.socialInsurance || 0));
+          parseFloat(user.violationsDeduction || 0) -
+          parseFloat(user.advancesDeduction || 0) -
+          parseFloat(user.medicalInsurance || 0) -
+          parseFloat(user.socialInsurance || 0);
 
         summaries[user._id.toString()] = {
           employeeCode: user.code,
